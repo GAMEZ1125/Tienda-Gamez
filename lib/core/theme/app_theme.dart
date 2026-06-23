@@ -319,7 +319,7 @@ class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: brandRed,
       ),
-      textSelectionTheme: const TextSelectionThemeData(
+      textSelectionTheme: TextSelectionThemeData(
         cursorColor: brandRed,
         selectionColor: brandRed.withValues(alpha: 0.4),
         selectionHandleColor: brandRed,

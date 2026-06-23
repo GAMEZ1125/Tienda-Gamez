@@ -84,6 +84,7 @@ class _DebtFormScreenState extends State<DebtFormScreen> {
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _save,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
             child: const Text('Guardar'),
           ),
         ],
@@ -117,7 +118,7 @@ class _DebtFormScreenState extends State<DebtFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Monto *',
                   prefixIcon: Icon(Icons.attach_money),
-                  prefixText: 'S/ ',
+                  prefixText: r'$ ',
                 ),
                 keyboardType: TextInputType.number,
                 validator: (v) {

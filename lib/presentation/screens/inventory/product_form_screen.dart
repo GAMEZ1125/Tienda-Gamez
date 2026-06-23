@@ -171,6 +171,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _save,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
             child: const Text('Guardar'),
           ),
         ],
@@ -216,7 +217,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Precio venta *',
                               prefixIcon: Icon(Icons.attach_money),
-                              prefixText: 'S/ ',
+                              prefixText: r'$ ',
                             ),
                             keyboardType: TextInputType.number,
                             validator: (v) {
@@ -234,7 +235,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Precio costo *',
                               prefixIcon: Icon(Icons.money_off),
-                              prefixText: 'S/ ',
+                              prefixText: r'$ ',
                             ),
                             keyboardType: TextInputType.number,
                             validator: (v) {

@@ -101,8 +101,8 @@ class NotificationService {
         ? '🔴 Crédito Vencido'
         : '🟡 Crédito por Vencer';
     final body = isOverdue
-        ? '${debt.customerName} — S/${remaining.toStringAsFixed(2)} pendiente (venció ${_formatDate(debt.dueDate)})'
-        : '${debt.customerName} — S/${remaining.toStringAsFixed(2)} vence el ${_formatDate(debt.dueDate)}';
+        ? '${debt.customerName} — \$${remaining.toStringAsFixed(2)} pendiente (venció ${_formatDate(debt.dueDate)})'
+        : '${debt.customerName} — \$${remaining.toStringAsFixed(2)} vence el ${_formatDate(debt.dueDate)}';
 
     await _plugin.show(
       id: id,
@@ -147,7 +147,7 @@ class NotificationService {
       body = 'Toca para ver los detalles de tus créditos pendientes';
     } else if (overdue.isNotEmpty) {
       title = '🔴 ${overdue.length} crédito(s) vencido(s)';
-      body = 'Total pendiente: S/${overdue.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount)).toStringAsFixed(2)}';
+      body = 'Total pendiente: \$${overdue.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount)).toStringAsFixed(2)}';
     } else {
       title = '🟡 ${dueSoon.length} crédito(s) por vencer';
       body = 'Revisa tus créditos próximos a vencer';
@@ -165,10 +165,10 @@ class NotificationService {
   InboxStyleInformation? _buildSummaryStyle(List<Debt> overdue, List<Debt> dueSoon) {
     final lines = <String>[];
     for (final d in overdue) {
-      lines.add('🔴 ${d.customerName} — S/${(d.amount - d.paidAmount).toStringAsFixed(2)} (vencido)');
+      lines.add('🔴 ${d.customerName} — \$${(d.amount - d.paidAmount).toStringAsFixed(2)} (vencido)');
     }
     for (final d in dueSoon) {
-      lines.add('🟡 ${d.customerName} — S/${(d.amount - d.paidAmount).toStringAsFixed(2)}');
+      lines.add('🟡 ${d.customerName} — \$${(d.amount - d.paidAmount).toStringAsFixed(2)}');
     }
     if (lines.isEmpty) return null;
     return InboxStyleInformation(

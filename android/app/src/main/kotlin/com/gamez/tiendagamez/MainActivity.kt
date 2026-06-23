@@ -1,4 +1,4 @@
-package com.tiendagamez.tienda_gamez
+package com.gamez.tiendagamez
 
 import io.flutter.embedding.android.FlutterActivity
 

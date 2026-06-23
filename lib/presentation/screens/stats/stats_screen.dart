@@ -128,7 +128,7 @@ class _StatsScreenState extends State<StatsScreen> {
                                       showTitles: true,
                                       reservedSize: 40,
                                       getTitlesWidget: (value, meta) => Text(
-                                        'S/${value.toInt()}',
+                                        '\$${value.toInt()}',
                                         style: const TextStyle(fontSize: 10),
                                       ),
                                     ),
@@ -266,7 +266,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                               child: Text(
                                 '${entry.key + 1}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
                                 ),

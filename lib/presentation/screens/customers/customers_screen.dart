@@ -84,7 +84,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                               backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                               child: Text(
                                 customer.name[0].toUpperCase(),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppTheme.primaryColor,
                                   fontWeight: FontWeight.bold,
                                 ),

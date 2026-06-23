@@ -86,7 +86,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
                     backgroundColor: Colors.white,
                     child: Text(
                       supplier.name[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 32, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 32, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 12),

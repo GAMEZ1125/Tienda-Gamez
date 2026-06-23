@@ -95,9 +95,17 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Cliente' : 'Nuevo Cliente'),
         actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _save,
-            child: const Text('Guardar'),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilledButton(
+              onPressed: _isLoading ? null : _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.brandRed,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+              child: const Text('Guardar'),
+            ),
           ),
         ],
       ),

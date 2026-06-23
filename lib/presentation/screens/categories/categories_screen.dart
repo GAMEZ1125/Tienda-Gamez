@@ -122,7 +122,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                    child: const Icon(Icons.category, color: AppTheme.primaryColor),
+                                    child: Icon(Icons.category, color: AppTheme.primaryColor),
                                   ),
                                   title: Text(cat.name),
                                   subtitle: cat.description != null ? Text(cat.description!, maxLines: 1, overflow: TextOverflow.ellipsis) : null,

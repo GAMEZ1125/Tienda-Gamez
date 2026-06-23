@@ -176,7 +176,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.upload_file,
                 size: 40,
                 color: AppTheme.primaryColor,
@@ -395,7 +395,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.shopping_bag, size: 18, color: AppTheme.primaryColor),
+                      child: Icon(Icons.shopping_bag, size: 18, color: AppTheme.primaryColor),
                     ),
                     title: Text(product.name, style: const TextStyle(fontSize: 13)),
                     subtitle: Text(

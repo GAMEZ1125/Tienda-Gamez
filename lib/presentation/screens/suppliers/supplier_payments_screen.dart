@@ -49,7 +49,7 @@ class _SupplierPaymentsScreenState extends State<SupplierPaymentsScreen> {
                     child: Column(
                       children: [
                         Text('Total Pagado', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                        Text(Formatters.formatCurrency(totalPayments), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        Text(Formatters.formatCurrency(totalPayments), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                       ],
                     ),
                   ),
@@ -135,7 +135,7 @@ class _SupplierPaymentsScreenState extends State<SupplierPaymentsScreen> {
             TextField(
               controller: amtCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Monto', prefixText: 'S/ '),
+              decoration: const InputDecoration(labelText: 'Monto', prefixText: r'$ '),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(

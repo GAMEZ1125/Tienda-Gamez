@@ -119,6 +119,161 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     );
   }
 
+  Widget _buildOrderCard(BuildContext context, PurchaseOrder order) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        final statusColor = _statusColor(order.status);
+        final metaText = '${Formatters.formatDate(order.date)} • ${order.items.length} productos';
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showOrderDetail(context, order),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: compact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: statusColor.withValues(alpha: 0.1),
+                              child: Icon(
+                                order.isPending ? Icons.schedule : order.isReceived ? Icons.check_circle : Icons.cancel,
+                                color: statusColor,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(order.supplierName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
+                                  Text(metaText, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  Formatters.formatCurrency(order.total),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _statusLabel(order.status),
+                                    style: TextStyle(fontSize: 11, color: statusColor),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (order.isPending) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.end,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () => _editOrder(order),
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                label: const Text('Editar'),
+                              ),
+                              FilledButton.icon(
+                                onPressed: () => _markReceived(order),
+                                icon: const Icon(Icons.check, size: 18),
+                                label: const Text('Recibido'),
+                                style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _cancelOrder(order),
+                                icon: const Icon(Icons.cancel_outlined, size: 18),
+                                label: const Text('Anular'),
+                                style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    )
+                  : ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: statusColor.withValues(alpha: 0.1),
+                        child: Icon(
+                          order.isPending ? Icons.schedule : order.isReceived ? Icons.check_circle : Icons.cancel,
+                          color: statusColor,
+                        ),
+                      ),
+                      title: Text(order.supplierName),
+                      subtitle: Text(metaText),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                Formatters.formatCurrency(order.total),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _statusLabel(order.status),
+                                  style: TextStyle(fontSize: 11, color: statusColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (order.isPending) ...[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                              tooltip: 'Editar pedido',
+                              onPressed: () => _editOrder(order),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.check_circle_outline, color: AppTheme.successColor),
+                              tooltip: 'Marcar como recibido',
+                              onPressed: () => _markReceived(order),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.cancel_outlined, color: AppTheme.errorColor),
+                              tooltip: 'Anular pedido',
+                              onPressed: () => _cancelOrder(order),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showOrderDetail(BuildContext context, PurchaseOrder order) {
     showDialog(
       context: context,
@@ -218,72 +373,34 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                           itemCount: _orders.length,
                           itemBuilder: (ctx, i) {
                             final order = _orders[i];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: _statusColor(order.status).withValues(alpha: 0.1),
-                                  child: Icon(
-                                    order.isPending ? Icons.schedule : order.isReceived ? Icons.check_circle : Icons.cancel,
-                                    color: _statusColor(order.status),
-                                  ),
-                                ),
-                                title: Text(order.supplierName),
-                                subtitle: Text('${Formatters.formatDate(order.date)} - ${order.items.length} productos'),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(Formatters.formatCurrency(order.total), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _statusColor(order.status).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(_statusLabel(order.status), style: TextStyle(fontSize: 11, color: _statusColor(order.status))),
-                                        ),
-                                      ],
-                                    ),
-                                    if (order.isPending) ...[
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_outlined, size: 20),
-                                        tooltip: 'Editar pedido',
-                                        onPressed: () => _editOrder(order),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.check_circle_outline, color: AppTheme.successColor),
-                                        tooltip: 'Marcar como recibido',
-                                        onPressed: () => _markReceived(order),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.cancel_outlined, color: AppTheme.errorColor),
-                                        tooltip: 'Anular pedido',
-                                        onPressed: () => _cancelOrder(order),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                onTap: () => _showOrderDetail(context, order),
-                              ),
-                            );
+                            return _buildOrderCard(context, order);
                           },
                         ),
                       ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await context.push<bool>('/purchase-orders/add');
-          if (result == true) _load();
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = MediaQuery.of(context).size.width < 420;
+          if (compact) {
+            return FloatingActionButton(
+              onPressed: () async {
+                final result = await context.push<bool>('/purchase-orders/add');
+                if (result == true) _load();
+              },
+              child: const Icon(Icons.add),
+            );
+          }
+          return FloatingActionButton.extended(
+            onPressed: () async {
+              final result = await context.push<bool>('/purchase-orders/add');
+              if (result == true) _load();
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Nuevo Pedido'),
+          );
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo Pedido'),
       ),
     );
   }

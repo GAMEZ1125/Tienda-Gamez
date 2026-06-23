@@ -4,6 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:tienda_gamez/main.dart';
+import 'package:tienda_gamez/services/preferences_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
@@ -201,6 +203,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Configuración'),
+        actions: [
+          IconButton(
+            tooltip: preferencesService.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+            onPressed: () async {
+              await preferencesService.toggleTheme();
+              if (mounted) setState(() {});
+            },
+            icon: Icon(
+              preferencesService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -245,6 +260,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -257,6 +277,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Appearance section
+          Text(
+            'Apariencia',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: preferencesService.isDarkMode
+                      ? AppTheme.brandRed.withValues(alpha: 0.35)
+                      : AppTheme.greyLight,
+                ),
+                color: preferencesService.isDarkMode
+                    ? AppTheme.brandRed.withValues(alpha: 0.08)
+                    : Colors.white,
+              ),
+              child: SwitchListTile(
+                secondary: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: preferencesService.isDarkMode
+                      ? AppTheme.brandRed.withValues(alpha: 0.15)
+                      : AppTheme.warningColor.withValues(alpha: 0.15),
+                  child: Icon(
+                    preferencesService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                    size: 18,
+                    color: preferencesService.isDarkMode ? AppTheme.brandRed : AppTheme.warningColor,
+                  ),
+                ),
+                title: const Text(
+                  'Modo Oscuro',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  preferencesService.isDarkMode ? 'Activado' : 'Desactivado',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                value: preferencesService.isDarkMode,
+                activeColor: AppTheme.brandRed,
+                onChanged: (_) async {
+                  await preferencesService.toggleTheme();
+                  setState(() {});
+                },
               ),
             ),
           ),
@@ -279,7 +350,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.backup, color: AppTheme.primaryColor),
+                      : Icon(Icons.backup, color: AppTheme.primaryColor),
                   title: const Text('Exportar Base de Datos'),
                   subtitle: const Text('Copia de seguridad de todos los datos'),
                   enabled: !_isExporting && !_isImporting,
@@ -321,13 +392,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             margin: EdgeInsets.zero,
             child: Column(
               children: [
-                const ListTile(
+                ListTile(
                   leading: Icon(Icons.store, color: AppTheme.primaryColor),
                   title: Text('Tienda Gamez'),
                   subtitle: Text('Versión 1.0.0'),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
-                const ListTile(
+                ListTile(
                   leading: Icon(Icons.code, color: AppTheme.primaryColor),
                   title: Text('Desarrollado con Flutter'),
                   subtitle: Text('Clean Architecture + BLoC + SQLite'),

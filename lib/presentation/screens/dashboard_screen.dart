@@ -483,7 +483,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.calendar_month, size: 18, color: AppTheme.primaryColor),
+                  child: Icon(Icons.calendar_month, size: 18, color: AppTheme.primaryColor),
                 ),
                 const SizedBox(width: 8),
                 const Text('Calendario de Vencimientos',
@@ -513,7 +513,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              selectedDecoration: const BoxDecoration(
+              selectedDecoration: BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),

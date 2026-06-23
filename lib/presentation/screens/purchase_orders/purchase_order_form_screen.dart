@@ -235,7 +235,11 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Pedido' : 'Nuevo Pedido'),
         actions: [
-          TextButton(onPressed: _isLoading ? null : _save, child: const Text('Guardar')),
+          TextButton(
+            onPressed: _isLoading ? null : _save,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text('Guardar'),
+          ),
         ],
       ),
       body: SingleChildScrollView(

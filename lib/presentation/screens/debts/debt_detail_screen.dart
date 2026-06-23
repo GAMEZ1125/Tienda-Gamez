@@ -247,7 +247,7 @@ class _DebtDetailScreenState extends State<DebtDetailScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Monto a pagar',
-                prefixText: 'S/ ',
+                prefixText: r'$ ',
               ),
             ),
           ],

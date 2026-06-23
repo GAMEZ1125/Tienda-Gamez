@@ -107,7 +107,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                     backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                                     child: Text(
                                       supplier.name[0].toUpperCase(),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: AppTheme.primaryColor,
                                         fontWeight: FontWeight.bold,
                                       ),

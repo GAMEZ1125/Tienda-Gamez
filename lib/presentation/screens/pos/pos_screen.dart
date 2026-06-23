@@ -309,7 +309,7 @@ class _CartSummary extends StatelessWidget {
                     child: Center(
                       child: Text(
                         '${item.quantity}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryColor,
                         ),
@@ -392,7 +392,7 @@ class _CartSummary extends StatelessWidget {
                     ),
                     Text(
                       Formatters.formatCurrency(cartState.total),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
@@ -451,7 +451,7 @@ class _CartSummary extends StatelessWidget {
                         children: [
                           Text(
                             Formatters.formatCurrency(cartState.total),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryColor,
@@ -501,7 +501,7 @@ class _CartSummary extends StatelessWidget {
                 controller: discountCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: isPercentage ? 'Porcentaje (%)' : 'Monto (S/)',
+                  labelText: isPercentage ? 'Porcentaje (%)' : 'Monto (\$)',
                   prefixIcon: const Icon(Icons.discount),
                 ),
               ),

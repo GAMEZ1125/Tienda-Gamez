@@ -380,7 +380,7 @@ class _ProductSearchDelegate extends SearchDelegate<Product?> {
             return ListTile(
               leading: CircleAvatar(
                 backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                child: const Icon(Icons.inventory_2, color: AppTheme.primaryColor),
+                child: Icon(Icons.inventory_2, color: AppTheme.primaryColor),
               ),
               title: Text(product.name),
               subtitle: Text('${Formatters.formatCurrency(product.price)} - Stock: ${product.stock}'),

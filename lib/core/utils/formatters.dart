@@ -2,9 +2,9 @@ import 'package:intl/intl.dart';
 
 class Formatters {
   static final currencyFormat = NumberFormat.currency(
-    symbol: 'S/ ',
+    symbol: r'$',
     decimalDigits: 2,
-    locale: 'es_PE',
+    locale: 'en_US',
   );
 
   static final dateFormat = DateFormat('dd/MM/yyyy');

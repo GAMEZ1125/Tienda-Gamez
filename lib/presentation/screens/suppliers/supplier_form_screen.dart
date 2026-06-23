@@ -101,6 +101,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _save,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
             child: const Text('Guardar'),
           ),
         ],

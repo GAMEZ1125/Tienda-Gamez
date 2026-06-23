@@ -82,7 +82,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Categoría' : 'Nueva Categoría'),
         actions: [
-          TextButton(onPressed: _isLoading ? null : _save, child: const Text('Guardar')),
+          TextButton(
+            onPressed: _isLoading ? null : _save,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text('Guardar'),
+          ),
         ],
       ),
       body: SingleChildScrollView(

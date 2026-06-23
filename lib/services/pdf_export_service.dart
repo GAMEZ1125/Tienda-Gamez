@@ -12,9 +12,9 @@ import '../data/database/database_helper.dart';
 
 class PdfExportService {
   static final _currencyFormat = NumberFormat.currency(
-    symbol: 'S/ ',
+    symbol: r'$',
     decimalDigits: 2,
-    locale: 'es_PE',
+    locale: 'en_US',
   );
   static final _dateFormat = DateFormat('dd/MM/yyyy');
 
