@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/debt.dart';
+import '../../../services/notification_service.dart';
 
 class DebtFormScreen extends StatefulWidget {
   const DebtFormScreen({super.key});
@@ -48,7 +49,16 @@ class _DebtFormScreenState extends State<DebtFormScreen> {
     );
 
     try {
-      await DatabaseHelper.insertDebt(debt);
+      final debtId = await DatabaseHelper.insertDebt(debt);
+
+      // Show local notification for the new debt
+      if (debt.dueDate.isBefore(DateTime.now().add(const Duration(days: 3)))) {
+        NotificationService().showDebtNotification(
+          debt.copyWith(id: debtId),
+          isOverdue: debt.dueDate.isBefore(DateTime.now()),
+        );
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Deuda registrada'), backgroundColor: AppTheme.successColor),

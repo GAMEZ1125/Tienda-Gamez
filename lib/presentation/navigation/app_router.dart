@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/home_screen.dart';
+import '../screens/dashboard_screen.dart';
 import '../screens/pos/pos_screen.dart';
 import '../screens/inventory/inventory_screen.dart';
 import '../screens/inventory/product_form_screen.dart';
@@ -12,11 +13,17 @@ import '../screens/customers/customer_profile_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
 import '../screens/suppliers/supplier_form_screen.dart';
 import '../screens/suppliers/supplier_profile_screen.dart';
+import '../screens/suppliers/supplier_payments_screen.dart';
 import '../screens/debts/debts_screen.dart';
 import '../screens/debts/debt_form_screen.dart';
 import '../screens/debts/debt_detail_screen.dart';
+import '../screens/debts/credit_report_screen.dart';
 import '../screens/stats/stats_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../screens/categories/categories_screen.dart';
+import '../screens/categories/category_form_screen.dart';
+import '../screens/purchase_orders/purchase_orders_screen.dart';
+import '../screens/purchase_orders/purchase_order_form_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -29,7 +36,7 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          redirect: (context, state) => '/pos',
+          pageBuilder: (context, state) => const NoTransitionPage(child: DashboardScreen()),
         ),
         GoRoute(
           path: '/pos',
@@ -98,6 +105,10 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => const SupplierFormScreen(),
             ),
             GoRoute(
+              path: 'payments',
+              builder: (context, state) => const SupplierPaymentsScreen(),
+            ),
+            GoRoute(
               path: ':id',
               builder: (context, state) => SupplierProfileScreen(
                 supplierId: int.parse(state.pathParameters['id'] ?? '0'),
@@ -114,9 +125,45 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => const DebtFormScreen(),
             ),
             GoRoute(
+              path: 'report',
+              builder: (context, state) => const CreditReportScreen(),
+            ),
+            GoRoute(
               path: ':id',
               builder: (context, state) => DebtDetailScreen(
                 debtId: int.parse(state.pathParameters['id'] ?? '0'),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/categories',
+          pageBuilder: (context, state) => const NoTransitionPage(child: CategoriesScreen()),
+          routes: [
+            GoRoute(
+              path: 'add',
+              builder: (context, state) => const CategoryFormScreen(),
+            ),
+            GoRoute(
+              path: 'edit/:id',
+              builder: (context, state) => CategoryFormScreen(
+                categoryId: int.tryParse(state.pathParameters['id'] ?? ''),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/purchase-orders',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PurchaseOrdersScreen()),
+          routes: [
+            GoRoute(
+              path: 'add',
+              builder: (context, state) => const PurchaseOrderFormScreen(),
+            ),
+            GoRoute(
+              path: 'edit/:id',
+              builder: (context, state) => PurchaseOrderFormScreen(
+                orderId: int.tryParse(state.pathParameters['id'] ?? ''),
               ),
             ),
           ],

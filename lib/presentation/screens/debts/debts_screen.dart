@@ -75,6 +75,11 @@ class _DebtsScreenState extends State<DebtsScreen> {
       appBar: AppBar(
         title: const Text('Deudas'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.assessment_outlined),
+            tooltip: 'Reporte por cliente',
+            onPressed: () => context.push('/debts/report'),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
             onSelected: (value) {

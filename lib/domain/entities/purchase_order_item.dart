@@ -1,92 +1,76 @@
 import 'package:equatable/equatable.dart';
 
-class SaleItem extends Equatable {
+class PurchaseOrderItem extends Equatable {
   final int? id;
-  final int? saleId;
+  final int? orderId;
   final int productId;
   final String productName;
-  final String? barcode;
-  final double price;
   final int quantity;
+  final double unitCost;
   final double subtotal;
-  final double taxRate;
 
-  const SaleItem({
+  const PurchaseOrderItem({
     this.id,
-    this.saleId,
+    this.orderId,
     required this.productId,
     required this.productName,
-    this.barcode,
-    required this.price,
     required this.quantity,
+    required this.unitCost,
     this.subtotal = 0,
-    this.taxRate = 0.18,
   });
 
-  double get taxAmount => subtotal * taxRate;
-
-  SaleItem copyWith({
+  PurchaseOrderItem copyWith({
     int? id,
-    int? saleId,
+    int? orderId,
     int? productId,
     String? productName,
-    String? barcode,
-    double? price,
     int? quantity,
+    double? unitCost,
     double? subtotal,
-    double? taxRate,
   }) {
-    return SaleItem(
+    return PurchaseOrderItem(
       id: id ?? this.id,
-      saleId: saleId ?? this.saleId,
+      orderId: orderId ?? this.orderId,
       productId: productId ?? this.productId,
       productName: productName ?? this.productName,
-      barcode: barcode ?? this.barcode,
-      price: price ?? this.price,
       quantity: quantity ?? this.quantity,
+      unitCost: unitCost ?? this.unitCost,
       subtotal: subtotal ?? this.subtotal,
-      taxRate: taxRate ?? this.taxRate,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
-      'saleId': saleId,
+      if (orderId != null) 'orderId': orderId,
       'productId': productId,
       'productName': productName,
-      'barcode': barcode,
-      'price': price,
       'quantity': quantity,
+      'unitCost': unitCost,
       'subtotal': subtotal,
-      'taxRate': taxRate,
     };
   }
 
-  factory SaleItem.fromMap(Map<String, dynamic> map) {
-    return SaleItem(
+  factory PurchaseOrderItem.fromMap(Map<String, dynamic> map) {
+    return PurchaseOrderItem(
       id: map['id'] as int?,
-      saleId: map['saleId'] as int?,
+      orderId: map['orderId'] as int?,
       productId: map['productId'] as int,
       productName: map['productName'] as String,
-      barcode: map['barcode'] as String?,
-      price: (map['price'] as num).toDouble(),
       quantity: map['quantity'] as int,
+      unitCost: (map['unitCost'] as num).toDouble(),
       subtotal: (map['subtotal'] as num).toDouble(),
-      taxRate: (map['taxRate'] as num?)?.toDouble() ?? 0.18,
     );
   }
 
   @override
   List<Object?> get props => [
         id,
-        saleId,
+        orderId,
         productId,
         productName,
-        barcode,
-        price,
         quantity,
+        unitCost,
         subtotal,
-        taxRate,
       ];
 }

@@ -39,6 +39,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
         title: const Text('Clientes'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.business_outlined),
+            tooltip: 'Proveedores',
+            onPressed: () => context.push('/suppliers'),
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => showSearch<Customer?>(
               context: context,

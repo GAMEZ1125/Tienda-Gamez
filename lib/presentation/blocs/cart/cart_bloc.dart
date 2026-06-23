@@ -86,9 +86,10 @@ class CartState extends Equatable {
     return discount;
   }
 
-  double get taxableAmount => subtotal - discountAmount;
-  double get taxAmount => taxableAmount * taxRate;
-  double get total => taxableAmount + taxAmount;
+  double get taxableAmount =>
+      items.fold(0.0, (sum, item) => item.taxRate > 0 ? sum + item.subtotal : sum);
+  double get taxAmount => items.fold(0.0, (sum, item) => sum + item.taxAmount);
+  double get total => subtotal - discountAmount + taxAmount;
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
 
@@ -152,6 +153,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         price: event.product.price,
         quantity: event.quantity,
         subtotal: event.product.price * event.quantity,
+        taxRate: event.product.hasTax ? state.taxRate : 0.0,
       ));
     }
 

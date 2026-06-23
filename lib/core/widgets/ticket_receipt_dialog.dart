@@ -60,7 +60,9 @@ class TicketReceiptDialog extends StatelessWidget {
     if (discount > 0) {
       buffer.writeln('${"Descuento".padRight(20)} -${Formatters.formatCurrency(discount).padLeft(9)}');
     }
-    buffer.writeln('${"IGV (18%)".padRight(20)} ${Formatters.formatCurrency(tax).padLeft(10)}');
+    if (tax > 0) {
+      buffer.writeln('${"IGV".padRight(20)} ${Formatters.formatCurrency(tax).padLeft(10)}');
+    }
     buffer.writeln('───────────────────────────────');
     buffer.writeln('${"TOTAL".padRight(20)} ${Formatters.formatCurrency(total).padLeft(10)}');
     buffer.writeln('');
@@ -230,7 +232,8 @@ class TicketReceiptDialog extends StatelessWidget {
                   if (discount > 0)
                     _totalLine('Descuento', '-${Formatters.formatCurrency(discount)}',
                         color: AppTheme.successColor),
-                  _totalLine('IGV (18%)', Formatters.formatCurrency(tax)),
+                  if (tax > 0)
+                    _totalLine('IGV', Formatters.formatCurrency(tax)),
                   const Divider(height: 1),
                   _totalLine('TOTAL', Formatters.formatCurrency(total),
                       bold: true, color: AppTheme.primaryColor),

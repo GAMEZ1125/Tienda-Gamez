@@ -11,6 +11,10 @@ import '../../domain/entities/expense.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/entities/payment.dart';
+import '../../domain/entities/product_category.dart';
+import '../../domain/entities/purchase_order.dart';
+import '../../domain/entities/purchase_order_item.dart';
+import '../../domain/entities/supplier_payment.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -47,6 +51,7 @@ class DatabaseHelper {
         barcode TEXT,
         imagePath TEXT,
         isActive INTEGER DEFAULT 1,
+        hasTax INTEGER DEFAULT 1,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -78,6 +83,7 @@ class DatabaseHelper {
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
         subtotal REAL NOT NULL,
+        taxRate REAL DEFAULT 0.18,
         FOREIGN KEY (saleId) REFERENCES sales(id) ON DELETE CASCADE
       )
     ''');
@@ -148,10 +154,139 @@ class DatabaseHelper {
         FOREIGN KEY (debtId) REFERENCES debts(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE product_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE purchase_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplierId INTEGER NOT NULL,
+        supplierName TEXT NOT NULL,
+        date TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        tax REAL NOT NULL,
+        total REAL NOT NULL,
+        status TEXT DEFAULT 'pending',
+        notes TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE purchase_order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        orderId INTEGER,
+        productId INTEGER NOT NULL,
+        productName TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unitCost REAL NOT NULL,
+        subtotal REAL NOT NULL,
+        FOREIGN KEY (orderId) REFERENCES purchase_orders(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE supplier_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplierId INTEGER NOT NULL,
+        supplierName TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        method TEXT DEFAULT 'Efectivo',
+        notes TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
+
+    // Insert default categories
+    final defaultCategories = [
+      'Videojuegos', 'Consolas', 'Accesorios',
+      'Tarjetas de Regalo', 'Merchandising', 'Otros',
+    ];
+    for (final cat in defaultCategories) {
+      await db.insert('product_categories', {
+        'name': cat,
+        'description': null,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+    }
   }
 
   static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle future migrations
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE products ADD COLUMN hasTax INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE sale_items ADD COLUMN taxRate REAL NOT NULL DEFAULT 0.18');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS product_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          supplierId INTEGER NOT NULL,
+          supplierName TEXT NOT NULL,
+          date TEXT NOT NULL,
+          subtotal REAL NOT NULL,
+          tax REAL NOT NULL,
+          total REAL NOT NULL,
+          status TEXT DEFAULT 'pending',
+          notes TEXT,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS purchase_order_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          orderId INTEGER,
+          productId INTEGER NOT NULL,
+          productName TEXT NOT NULL,
+          quantity INTEGER NOT NULL,
+          unitCost REAL NOT NULL,
+          subtotal REAL NOT NULL,
+          FOREIGN KEY (orderId) REFERENCES purchase_orders(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS supplier_payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          supplierId INTEGER NOT NULL,
+          supplierName TEXT NOT NULL,
+          amount REAL NOT NULL,
+          date TEXT NOT NULL,
+          method TEXT DEFAULT 'Efectivo',
+          notes TEXT,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+      // Insert default categories
+      final existing = await db.query('product_categories');
+      if (existing.isEmpty) {
+        final defaultCategories = [
+          'Videojuegos', 'Consolas', 'Accesorios',
+          'Tarjetas de Regalo', 'Merchandising', 'Otros',
+        ];
+        for (final cat in defaultCategories) {
+          await db.insert('product_categories', {
+            'name': cat,
+            'description': null,
+            'createdAt': DateTime.now().toIso8601String(),
+          });
+        }
+      }
+    }
   }
 
   // ==================== PRODUCTS ====================
@@ -318,6 +453,18 @@ class DatabaseHelper {
           purchaseCount: customer.purchaseCount + 1,
           lastPurchase: sale.date,
         ));
+      }
+
+      // Auto-create debt for credit sales with 30-day due date
+      if (sale.paymentMethod == 'Crédito') {
+        final debt = Debt(
+          customerId: sale.customerId!,
+          customerName: sale.customerName ?? 'Cliente #${sale.customerId}',
+          amount: sale.total,
+          dueDate: sale.date.add(const Duration(days: 30)),
+          notes: 'Venta a crédito #$id — ${sale.items.length} producto(s)',
+        );
+        await db.insert('debts', debt.toMap());
       }
     }
 
@@ -721,6 +868,179 @@ class DatabaseHelper {
   }
 
   /// Copies a file from [source] to [destination] using the `dart:io` API.
+  // ==================== PRODUCT CATEGORIES ====================
+
+  static Future<List<ProductCategory>> getAllCategories() async {
+    final db = await database;
+    final maps = await db.query('product_categories', orderBy: 'name');
+    return maps.map((map) => ProductCategory.fromMap(map)).toList();
+  }
+
+  static Future<ProductCategory?> getCategoryById(int id) async {
+    final db = await database;
+    final maps = await db.query('product_categories', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return ProductCategory.fromMap(maps.first);
+  }
+
+  static Future<int> insertCategory(ProductCategory category) async {
+    final db = await database;
+    return await db.insert('product_categories', category.toMap());
+  }
+
+  static Future<int> updateCategory(ProductCategory category) async {
+    final db = await database;
+    return await db.update('product_categories', category.toMap(), where: 'id = ?', whereArgs: [category.id]);
+  }
+
+  static Future<int> deleteCategory(int id) async {
+    final db = await database;
+    return await db.delete('product_categories', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ==================== PURCHASE ORDERS ====================
+
+  static Future<List<PurchaseOrder>> getAllPurchaseOrders() async {
+    final db = await database;
+    final maps = await db.query('purchase_orders', orderBy: 'date DESC');
+    return await _loadPurchaseOrderItems(maps);
+  }
+
+  static Future<List<PurchaseOrder>> getPurchaseOrdersBySupplier(int supplierId) async {
+    final db = await database;
+    final maps = await db.query(
+      'purchase_orders',
+      where: 'supplierId = ?',
+      whereArgs: [supplierId],
+      orderBy: 'date DESC',
+    );
+    return await _loadPurchaseOrderItems(maps);
+  }
+
+  static Future<List<PurchaseOrder>> getPurchaseOrdersByStatus(String status) async {
+    final db = await database;
+    final maps = await db.query(
+      'purchase_orders',
+      where: 'status = ?',
+      whereArgs: [status],
+      orderBy: 'date DESC',
+    );
+    return await _loadPurchaseOrderItems(maps);
+  }
+
+  static Future<PurchaseOrder?> getPurchaseOrderById(int id) async {
+    final db = await database;
+    final maps = await db.query('purchase_orders', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    final order = PurchaseOrder.fromMap(maps.first);
+    final items = await db.query('purchase_order_items', where: 'orderId = ?', whereArgs: [id]);
+    return order.copyWith(items: items.map((i) => PurchaseOrderItem.fromMap(i)).toList());
+  }
+
+  static Future<int> insertPurchaseOrder(PurchaseOrder order) async {
+    final db = await database;
+    final id = await db.insert('purchase_orders', order.toMap());
+
+    for (final item in order.items) {
+      await db.insert('purchase_order_items', item.copyWith(orderId: id).toMap());
+    }
+
+    // Update supplier totalPurchases
+    final supplier = await getSupplierById(order.supplierId);
+    if (supplier != null) {
+      await updateSupplier(supplier.copyWith(
+        totalPurchases: supplier.totalPurchases + order.total,
+      ));
+    }
+
+    return id;
+  }
+
+  static Future<void> updatePurchaseOrderStatus(int id, String status) async {
+    final db = await database;
+    await db.update('purchase_orders', {'status': status}, where: 'id = ?', whereArgs: [id]);
+
+    // If received, add stock for each item
+    if (status == 'received') {
+      final order = await getPurchaseOrderById(id);
+      if (order != null) {
+        for (final item in order.items) {
+          await increaseStock(item.productId, item.quantity);
+        }
+      }
+    }
+  }
+
+  static Future<void> updatePurchaseOrder(PurchaseOrder order) async {
+    final db = await database;
+    await db.update('purchase_orders', order.toMap(), where: 'id = ?', whereArgs: [order.id]);
+    // Delete old items and re-insert
+    await db.delete('purchase_order_items', where: 'orderId = ?', whereArgs: [order.id]);
+    for (final item in order.items) {
+      await db.insert('purchase_order_items', item.copyWith(orderId: order.id).toMap());
+    }
+  }
+
+  static Future<int> deletePurchaseOrder(int id) async {
+    final db = await database;
+    return await db.delete('purchase_orders', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<List<PurchaseOrder>> _loadPurchaseOrderItems(List<Map<String, dynamic>> orderMaps) async {
+    final db = await database;
+    final orders = <PurchaseOrder>[];
+    for (final map in orderMaps) {
+      final order = PurchaseOrder.fromMap(map);
+      final items = await db.query('purchase_order_items', where: 'orderId = ?', whereArgs: [order.id]);
+      orders.add(order.copyWith(items: items.map((i) => PurchaseOrderItem.fromMap(i)).toList()));
+    }
+    return orders;
+  }
+
+  // ==================== SUPPLIER PAYMENTS ====================
+
+  static Future<List<SupplierPayment>> getAllSupplierPayments() async {
+    final db = await database;
+    final maps = await db.query('supplier_payments', orderBy: 'date DESC');
+    return maps.map((map) => SupplierPayment.fromMap(map)).toList();
+  }
+
+  static Future<List<SupplierPayment>> getSupplierPaymentsBySupplier(int supplierId) async {
+    final db = await database;
+    final maps = await db.query(
+      'supplier_payments',
+      where: 'supplierId = ?',
+      whereArgs: [supplierId],
+      orderBy: 'date DESC',
+    );
+    return maps.map((map) => SupplierPayment.fromMap(map)).toList();
+  }
+
+  static Future<double> getTotalSupplierPayments() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COALESCE(SUM(amount), 0) as total FROM supplier_payments');
+    return (result.first['total'] as num).toDouble();
+  }
+
+  static Future<double> getTotalSupplierPaymentsBySupplier(int supplierId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) as total FROM supplier_payments WHERE supplierId = ?',
+      [supplierId],
+    );
+    return (result.first['total'] as num).toDouble();
+  }
+
+  static Future<int> insertSupplierPayment(SupplierPayment payment) async {
+    final db = await database;
+    return await db.insert('supplier_payments', payment.toMap());
+  }
+
+  static Future<int> deleteSupplierPayment(int id) async {
+    final db = await database;
+    return await db.delete('supplier_payments', where: 'id = ?', whereArgs: [id]);
+  }
+
   static Future<void> copyFile(String source, String destination) async {
     final sourceFile = io.File(source);
     final destFile = io.File(destination);
@@ -763,5 +1083,53 @@ class DatabaseHelper {
       'lowStockCount': lowStockCount,
       'pendingDebtsCount': pendingDebtsCount,
     };
+  }
+
+  /// Returns top products sold with profit (totalAmount - totalCost).
+  static Future<List<Map<String, dynamic>>> getTopProductsWithProfit(DateTime start, DateTime end, {int limit = 5}) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''SELECT si.productId, si.productName,
+         SUM(si.quantity) as totalQuantity,
+         SUM(si.subtotal) as totalAmount,
+         SUM(si.quantity * p.cost) as totalCost,
+         SUM(si.subtotal - (si.quantity * p.cost)) as totalProfit
+         FROM sale_items si
+         JOIN sales s ON si.saleId = s.id
+         JOIN products p ON si.productId = p.id
+         WHERE s.date >= ? AND s.date <= ? AND s.status = ?
+         GROUP BY si.productId
+         ORDER BY totalProfit DESC
+         LIMIT ?''',
+      [start.toIso8601String(), end.toIso8601String(), 'completed', limit],
+    );
+  }
+
+  /// Returns total profit (sales - cost of goods sold) for a date range.
+  static Future<double> getTotalProfit(DateTime start, DateTime end) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''SELECT COALESCE(SUM(si.subtotal - (si.quantity * p.cost)), 0) as profit
+         FROM sale_items si
+         JOIN sales s ON si.saleId = s.id
+         JOIN products p ON si.productId = p.id
+         WHERE s.date >= ? AND s.date <= ? AND s.status = ?''',
+      [start.toIso8601String(), end.toIso8601String(), 'completed'],
+    );
+    return (result.first['profit'] as num).toDouble();
+  }
+
+  /// Returns total cost of goods sold for a date range.
+  static Future<double> getTotalCogs(DateTime start, DateTime end) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''SELECT COALESCE(SUM(si.quantity * p.cost), 0) as cogs
+         FROM sale_items si
+         JOIN sales s ON si.saleId = s.id
+         JOIN products p ON si.productId = p.id
+         WHERE s.date >= ? AND s.date <= ? AND s.status = ?''',
+      [start.toIso8601String(), end.toIso8601String(), 'completed'],
+    );
+    return (result.first['cogs'] as num).toDouble();
   }
 }

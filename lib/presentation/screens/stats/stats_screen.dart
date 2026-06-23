@@ -16,6 +16,9 @@ class _StatsScreenState extends State<StatsScreen> {
   Map<String, dynamic>? _stats;
   List<Map<String, dynamic>> _dailySales = [];
   List<Map<String, dynamic>> _topProducts = [];
+  List<Map<String, dynamic>> _topProductsWithProfit = [];
+  double _totalProfit = 0;
+  double _totalCogs = 0;
   bool _isLoading = true;
 
   @override
@@ -34,11 +37,17 @@ class _StatsScreenState extends State<StatsScreen> {
     final stats = await DatabaseHelper.getDashboardStats();
     final dailySales = await DatabaseHelper.getDailySales(weekAgo, now);
     final topProducts = await DatabaseHelper.getTopProducts(monthStart, now);
+    final topWithProfit = await DatabaseHelper.getTopProductsWithProfit(monthStart, now);
+    final totalProfit = await DatabaseHelper.getTotalProfit(monthStart, now);
+    final totalCogs = await DatabaseHelper.getTotalCogs(monthStart, now);
 
     setState(() {
       _stats = stats;
       _dailySales = dailySales;
       _topProducts = topProducts;
+      _topProductsWithProfit = topWithProfit;
+      _totalProfit = totalProfit;
+      _totalCogs = totalCogs;
       _isLoading = false;
     });
   }
@@ -149,7 +158,91 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Top products
+                    // Profit summary
+                    if (_totalProfit > 0)
+                      Card(
+                        margin: EdgeInsets.zero,
+                        color: AppTheme.successColor.withValues(alpha: 0.05),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Utilidad Bruta del Mes', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    const SizedBox(height: 4),
+                                    Text(Formatters.formatCurrency(_totalProfit), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.successColor)),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Costo de Ventas (COGS)', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    const SizedBox(height: 4),
+                                    Text(Formatters.formatCurrency(_totalCogs), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.warningColor)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // Top products with profit
+                    Text(
+                      'Utilidad por Producto',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_topProductsWithProfit.isEmpty)
+                      const Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('Sin ventas este mes')),
+                        ),
+                      )
+                    else
+                      ..._topProductsWithProfit.asMap().entries.map((entry) {
+                        final p = entry.value;
+                        final profit = (p['totalProfit'] as num).toDouble();
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: profit >= 0 ? AppTheme.successColor.withValues(alpha: 0.1) : AppTheme.errorColor.withValues(alpha: 0.1),
+                              child: Text(
+                                '${entry.key + 1}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: profit >= 0 ? AppTheme.successColor : AppTheme.errorColor,
+                                ),
+                              ),
+                            ),
+                            title: Text(p['productName'] as String),
+                            subtitle: Text('${p['totalQuantity']} unds. vendidas | Costo: ${Formatters.formatCurrency((p['totalCost'] as num).toDouble())}'),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(Formatters.formatCurrency((p['totalAmount'] as num).toDouble()), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  Formatters.formatCurrency(profit),
+                                  style: TextStyle(fontSize: 12, color: profit >= 0 ? AppTheme.successColor : AppTheme.errorColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 16),
+
+                    // Top products sold
                     Text(
                       'Productos Más Vendidos',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),

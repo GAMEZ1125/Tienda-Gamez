@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
+import '../../../domain/entities/product_category.dart';
 import '../scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -24,18 +24,26 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _minStockController = TextEditingController();
   final _barcodeController = TextEditingController();
 
+  List<ProductCategory> _categories = [];
   String? _selectedCategory;
   bool _isActive = true;
+  bool _hasTax = true;
   bool _isLoading = false;
   bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     if (widget.productId != null) {
       _isEditing = true;
       _loadProduct();
     }
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await DatabaseHelper.getAllCategories();
+    setState(() => _categories = cats);
   }
 
   Future<void> _loadProduct() async {
@@ -51,6 +59,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _barcodeController.text = product.barcode ?? '';
       _selectedCategory = product.category;
       _isActive = product.isActive;
+      _hasTax = product.hasTax;
     }
     setState(() => _isLoading = false);
   }
@@ -87,6 +96,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ? null
           : _barcodeController.text.trim(),
       isActive: _isActive,
+      hasTax: _hasTax,
     );
 
     try {
@@ -269,9 +279,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         labelText: 'Categoría',
                         prefixIcon: Icon(Icons.category),
                       ),
-                      items: AppConstants.productCategories.map((cat) {
-                        return DropdownMenuItem(value: cat, child: Text(cat));
-                      }).toList(),
+                      items: [
+                        ..._categories.map((cat) {
+                          return DropdownMenuItem(value: cat.name, child: Text(cat.name));
+                        }),
+                        if (_selectedCategory != null && !_categories.any((c) => c.name == _selectedCategory))
+                          DropdownMenuItem<String>(value: _selectedCategory!, child: Text(_selectedCategory!)),
+                      ],
                       onChanged: (v) => setState(() => _selectedCategory = v),
                     ),
                     const SizedBox(height: 16),
@@ -290,6 +304,18 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Tax toggle
+                    SwitchListTile(
+                      title: const Text('Aplica IGV/IVA'),
+                      subtitle: Text(_hasTax ? '18% de impuesto aplicado en venta' : 'Producto exonerado de impuestos'),
+                      value: _hasTax,
+                      onChanged: (v) => setState(() => _hasTax = v),
+                      secondary: Icon(
+                        _hasTax ? Icons.receipt : Icons.money_off,
+                        color: _hasTax ? AppTheme.primaryColor : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     // Active toggle
                     SwitchListTile(
                       title: const Text('Producto activo'),

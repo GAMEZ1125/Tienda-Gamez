@@ -54,6 +54,18 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Proveedores'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.payments_outlined),
+            tooltip: 'Pagos a Proveedores',
+            onPressed: () => context.push('/suppliers/payments'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.inbox_outlined),
+            tooltip: 'Pedidos a Proveedores',
+            onPressed: () => context.push('/purchase-orders'),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

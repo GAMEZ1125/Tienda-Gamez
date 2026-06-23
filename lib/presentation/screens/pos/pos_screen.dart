@@ -371,16 +371,17 @@ class _CartSummary extends StatelessWidget {
                       ),
                     ],
                   ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('IGV (18%)', style: TextStyle(fontSize: 14)),
-                    Text(
-                      Formatters.formatCurrency(cartState.taxAmount),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
+                if (cartState.taxAmount > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('IGV', style: TextStyle(fontSize: 14)),
+                      Text(
+                        Formatters.formatCurrency(cartState.taxAmount),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -400,53 +401,78 @@ class _CartSummary extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Action buttons
+                // Action buttons row
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showDiscountDialog(context),
-                        icon: const Icon(Icons.discount_outlined, size: 18),
-                        label: const Text('Dto.', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showPaymentMethodDialog(context),
-                        icon: const Icon(Icons.payments_outlined, size: 18),
-                        label: Text(
-                          cartState.paymentMethod.length > 8
-                              ? '${cartState.paymentMethod.substring(0, 8)}...'
-                              : cartState.paymentMethod,
-                          style: const TextStyle(fontSize: 12),
+                    // Three action buttons take less space
+                    Tooltip(
+                      message: 'Descuento',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: () => _showDiscountDialog(context),
+                          style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
+                          child: const Icon(Icons.discount_outlined, size: 18),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showCustomerSelector(context),
-                        icon: const Icon(Icons.person_outline, size: 18),
-                        label: Text(
-                          cartState.customer?.name ?? 'Cliente',
-                          style: const TextStyle(fontSize: 12),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'Método de pago',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: () => _showPaymentMethodDialog(context),
+                          style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
+                          child: const Icon(Icons.payments_outlined, size: 18),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      height: 44,
-                      child: ElevatedButton.icon(
-                        onPressed: cartState.items.isEmpty
-                            ? null
-                            : () => _finalizeSale(context),
-                        icon: const Icon(Icons.shopping_cart_checkout),
-                        label: const Text('Vender'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successColor,
-                          foregroundColor: Colors.white,
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'Cliente',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: () => _showCustomerSelector(context),
+                          style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
+                          child: const Icon(Icons.person_outline, size: 18),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // Total + Vender
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            Formatters.formatCurrency(cartState.total),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 40,
+                            child: ElevatedButton.icon(
+                              onPressed: cartState.items.isEmpty
+                                  ? null
+                                  : () => _finalizeSale(context),
+                              icon: const Icon(Icons.shopping_cart_checkout, size: 18),
+                              label: const Text('Vender', style: TextStyle(fontSize: 13)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.successColor,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -622,7 +648,8 @@ Future<void> _finalizeSale(BuildContext context) async {
           _summaryRow('Subtotal', Formatters.formatCurrency(cartState.subtotal)),
           if (cartState.discountAmount > 0)
             _summaryRow('Descuento', '-${Formatters.formatCurrency(cartState.discountAmount)}'),
-          _summaryRow('IGV (18%)', Formatters.formatCurrency(cartState.taxAmount)),
+          if (cartState.taxAmount > 0)
+            _summaryRow('IGV', Formatters.formatCurrency(cartState.taxAmount)),
           const Divider(),
           _summaryRow('TOTAL', Formatters.formatCurrency(cartState.total), bold: true),
           const SizedBox(height: 8),

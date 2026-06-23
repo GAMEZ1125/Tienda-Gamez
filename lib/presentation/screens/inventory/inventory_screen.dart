@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
+import '../../../domain/entities/product_category.dart';
 import 'csv_import_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -18,6 +18,7 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
+  List<ProductCategory> _categories = [];
   bool _isLoading = true;
   bool _showLowStockOnly = false;
   String _selectedCategory = 'Todas';
@@ -38,8 +39,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _loadProducts() async {
     setState(() => _isLoading = true);
     final products = await DatabaseHelper.getAllProductsIncludingInactive();
+    final cats = await DatabaseHelper.getAllCategories();
     setState(() {
       _products = products;
+      _categories = cats;
       _isLoading = false;
       _applyFilters();
     });
@@ -92,9 +95,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onSelected: (value) {
               if (value == 'import_csv') {
                 _openCsvImport();
+              } else if (value == 'categories') {
+                context.push('/categories');
+              } else if (value == 'purchase_orders') {
+                context.push('/purchase-orders');
               }
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'categories',
+                child: ListTile(
+                  leading: Icon(Icons.category_outlined),
+                  title: Text('Categorías'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'purchase_orders',
+                child: ListTile(
+                  leading: Icon(Icons.inbox_outlined),
+                  title: Text('Pedidos a Proveedores'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'import_csv',
                 child: ListTile(
@@ -138,7 +163,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 avatar: Icon(Icons.warning, size: 16, color: _showLowStockOnly ? Colors.white : AppTheme.warningColor),
                               ),
                               const SizedBox(width: 8),
-                              ...['Todas', ...AppConstants.productCategories].map((cat) {
+                              ...['Todas', ..._categories.map((c) => c.name)].map((cat) {
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: ChoiceChip(

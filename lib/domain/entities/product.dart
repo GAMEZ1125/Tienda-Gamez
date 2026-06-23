@@ -12,6 +12,7 @@ class Product extends Equatable {
   final String? barcode;
   final String? imagePath;
   final bool isActive;
+  final bool hasTax;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +28,7 @@ class Product extends Equatable {
     this.barcode,
     this.imagePath,
     this.isActive = true,
+    this.hasTax = true,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -44,6 +46,7 @@ class Product extends Equatable {
     String? barcode,
     String? imagePath,
     bool? isActive,
+    bool? hasTax,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -59,6 +62,7 @@ class Product extends Equatable {
       barcode: barcode ?? this.barcode,
       imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
+      hasTax: hasTax ?? this.hasTax,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -77,6 +81,7 @@ class Product extends Equatable {
       'barcode': barcode,
       'imagePath': imagePath,
       'isActive': isActive ? 1 : 0,
+      'hasTax': hasTax ? 1 : 0,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -95,6 +100,7 @@ class Product extends Equatable {
       barcode: map['barcode'] as String?,
       imagePath: map['imagePath'] as String?,
       isActive: (map['isActive'] as int?) == 1,
+      hasTax: (map['hasTax'] as int?) == 1,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -116,6 +122,7 @@ class Product extends Equatable {
         barcode,
         imagePath,
         isActive,
+        hasTax,
         createdAt,
         updatedAt,
       ];

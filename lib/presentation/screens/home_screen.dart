@@ -7,14 +7,17 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.child});
 
   int _currentIndex(String location) {
-    if (location.startsWith('/pos')) return 0;
-    if (location.startsWith('/inventory')) return 1;
-    if (location.startsWith('/expenses')) return 1;
-    if (location.startsWith('/customers')) return 2;
-    if (location.startsWith('/suppliers')) return 2;
-    if (location.startsWith('/debts')) return 3;
-    if (location.startsWith('/stats')) return 4;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/home')) return 0;
+    if (location.startsWith('/pos')) return 1;
+    if (location.startsWith('/inventory')) return 2;
+    if (location.startsWith('/expenses')) return 2;
+    if (location.startsWith('/customers')) return 3;
+    if (location.startsWith('/suppliers')) return 3;
+    if (location.startsWith('/debts')) return 4;
+    if (location.startsWith('/purchase-orders')) return 4;
+    if (location.startsWith('/categories')) return 2;
+    if (location.startsWith('/stats')) return 0;
+    if (location.startsWith('/settings')) return 0;
     return 0;
   }
 
@@ -30,23 +33,28 @@ class HomeScreen extends StatelessWidget {
             onDestinationSelected: (index) {
               switch (index) {
                 case 0:
-                  context.go('/pos');
+                  context.go('/home');
                   break;
                 case 1:
-                  context.go('/inventory');
+                  context.go('/pos');
                   break;
                 case 2:
-                  context.go('/customers');
+                  context.go('/inventory');
                   break;
                 case 3:
-                  context.go('/debts');
+                  context.go('/customers');
                   break;
                 case 4:
-                  context.go('/stats');
+                  context.go('/debts');
                   break;
               }
             },
             destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Inicio',
+              ),
               NavigationDestination(
                 icon: Icon(Icons.point_of_sale_outlined),
                 selectedIcon: Icon(Icons.point_of_sale),
@@ -63,14 +71,9 @@ class HomeScreen extends StatelessWidget {
                 label: 'Clientes',
               ),
               NavigationDestination(
-                icon: Icon(Icons.money_off_outlined),
-                selectedIcon: Icon(Icons.money_off),
-                label: 'Deudas',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bar_chart_outlined),
-                selectedIcon: Icon(Icons.bar_chart),
-                label: 'Estadísticas',
+                icon: Icon(Icons.credit_card_outlined),
+                selectedIcon: Icon(Icons.credit_card),
+                label: 'Créditos',
               ),
             ],
           );
