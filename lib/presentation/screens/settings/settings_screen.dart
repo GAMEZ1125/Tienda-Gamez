@@ -323,7 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 value: preferencesService.isDarkMode,
-                activeColor: AppTheme.brandRed,
+                activeThumbColor: AppTheme.brandRed,
                 onChanged: (_) async {
                   await preferencesService.toggleTheme();
                   setState(() {});

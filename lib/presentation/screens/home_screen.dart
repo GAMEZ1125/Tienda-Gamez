@@ -73,7 +73,7 @@ class HomeScreen extends StatelessWidget {
               NavigationDestination(
                 icon: Icon(Icons.credit_card_outlined),
                 selectedIcon: Icon(Icons.credit_card),
-                label: 'Créditos',
+                label: 'Deudas',
               ),
             ],
           );

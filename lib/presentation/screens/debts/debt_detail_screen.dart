@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -57,11 +58,15 @@ class _DebtDetailScreenState extends State<DebtDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_debt == null) return Scaffold(
-      appBar: AppBar(title: const Text('Deuda')),
-      body: const Center(child: Text('Deuda no encontrada')),
-    );
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_debt == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Deuda')),
+        body: const Center(child: Text('Deuda no encontrada')),
+      );
+    }
 
     final debt = _debt!;
     final isOverdue = debt.status != 'paid' && debt.dueDate.isBefore(DateTime.now());
@@ -70,6 +75,13 @@ class _DebtDetailScreenState extends State<DebtDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle de Deuda'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Compartir estado',
+            onPressed: () => _shareDebt(debt),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadData,
@@ -277,5 +289,28 @@ class _DebtDetailScreenState extends State<DebtDetailScreen> {
         }
       }
     }
+  }
+
+  Future<void> _shareDebt(Debt debt) async {
+    final buffer = StringBuffer()
+      ..writeln('Tienda Gamez - Estado de crédito')
+      ..writeln('Cliente: ${debt.customerName}')
+      ..writeln('Estado: ${_statusLabel(debt.status)}')
+      ..writeln('Monto total: ${Formatters.formatCurrency(debt.amount)}')
+      ..writeln('Pagado: ${Formatters.formatCurrency(debt.paidAmount)}')
+      ..writeln('Saldo pendiente: ${Formatters.formatCurrency(debt.remainingAmount)}')
+      ..writeln('Vencimiento: ${Formatters.formatDate(debt.dueDate)}');
+
+    if (_payments.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('Pagos registrados:');
+      for (final payment in _payments) {
+        buffer.writeln(
+          '- ${Formatters.formatDate(payment.date)} | ${Formatters.formatCurrency(payment.amount)} | ${payment.method}',
+        );
+      }
+    }
+
+    await Share.share(buffer.toString(), subject: 'Estado de crédito - ${debt.customerName}');
   }
 }

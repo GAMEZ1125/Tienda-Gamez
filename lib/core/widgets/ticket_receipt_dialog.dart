@@ -1,5 +1,10 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -82,10 +87,23 @@ class TicketReceiptDialog extends StatelessWidget {
   }
 
   Future<void> _shareTicket(BuildContext context) async {
-    await Share.share(
-      _ticketText,
-      subject: 'Comprobante $_ticketNumber - Tienda Gamez',
-    );
+    try {
+      final bytes = await _buildTicketImageBytes();
+      final dir = await getTemporaryDirectory();
+      final file = File(p.join(dir.path, 'ticket_$_ticketNumber.png'));
+      await file.writeAsBytes(bytes, flush: true);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'image/png')],
+        text: 'Comprobante $_ticketNumber - Tienda Gamez',
+        subject: 'Comprobante $_ticketNumber - Tienda Gamez',
+      );
+    } catch (_) {
+      await Share.share(
+        _ticketText,
+        subject: 'Comprobante $_ticketNumber - Tienda Gamez',
+      );
+    }
   }
 
   Future<void> _copyTicket(BuildContext context) async {
@@ -330,6 +348,295 @@ class TicketReceiptDialog extends StatelessWidget {
       ),
     );
   }
+
+  Future<Uint8List> _buildTicketImageBytes() async {
+    const width = 1080;
+    const horizontalPadding = 56.0;
+    final cardWidth = width - 112.0;
+    final itemRowHeight = items.length * 108.0;
+    final discountHeight = discount > 0 ? 32.0 : 0.0;
+    final taxHeight = tax > 0 ? 32.0 : 0.0;
+    final totalHeight = (420 +
+            itemRowHeight +
+            discountHeight +
+            taxHeight +
+            160)
+        .ceil();
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final bgPaint = Paint()..color = const Color(0xFFF5F1EA);
+    canvas.drawRect(Rect.fromLTWH(0, 0, width.toDouble(), totalHeight.toDouble()), bgPaint);
+
+    final cardRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(horizontalPadding, 48.0, cardWidth, totalHeight - 96.0),
+      const Radius.circular(32),
+    );
+    canvas.drawShadow(Path()..addRRect(cardRect), Colors.black.withValues(alpha: 0.16), 14, true);
+    canvas.drawRRect(
+      cardRect,
+      Paint()..color = Colors.white,
+    );
+
+    double y = 72;
+    final centerX = width / 2;
+
+    final headerRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(56.0, 48.0, cardWidth, 220.0),
+      const Radius.circular(32),
+    );
+    final headerPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(56, 48),
+        const Offset(1024, 268),
+        [AppTheme.brandRed, AppTheme.brandRed.withValues(alpha: 0.85)],
+      );
+    canvas.drawRRect(headerRect, headerPaint);
+
+    _drawCircle(canvas, Offset(centerX, 122), 42, Colors.white.withValues(alpha: 0.95));
+    _drawText(
+      canvas,
+      'TG',
+      const TextStyle(
+        fontSize: 34,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.brandRed,
+      ),
+      centerX,
+      102,
+      align: TextAlign.center,
+      maxWidth: 120,
+    );
+    _drawText(
+      canvas,
+      'TIENDA GAMEZ',
+      const TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 2,
+        color: Colors.white,
+      ),
+      centerX,
+      178,
+      align: TextAlign.center,
+      maxWidth: 700,
+    );
+    _drawText(
+      canvas,
+      'Ticket $_ticketNumber',
+      const TextStyle(
+        fontSize: 18,
+        color: Colors.white70,
+        fontWeight: FontWeight.w500,
+      ),
+      centerX,
+      220,
+      align: TextAlign.center,
+      maxWidth: 700,
+    );
+
+    y = 300;
+    _drawText(canvas, 'Fecha', _sectionLabelStyle, 96, y);
+    _drawText(canvas, Formatters.formatDateTime(date), _sectionValueStyle, 240, y);
+    y += 34;
+    _drawText(canvas, 'Método', _sectionLabelStyle, 96, y);
+    _drawText(canvas, paymentMethod, _sectionValueStyle, 240, y);
+    y += 34;
+    if (customerName != null) {
+      _drawText(canvas, 'Cliente', _sectionLabelStyle, 96, y);
+      _drawText(canvas, customerName!, _sectionValueStyle, 240, y);
+      y += 34;
+    }
+
+    y += 18;
+    canvas.drawLine(
+      Offset(96, y),
+      Offset(width - 96, y),
+      Paint()
+        ..color = AppTheme.greyLight
+        ..strokeWidth = 2,
+    );
+    y += 24;
+
+    _drawText(canvas, 'Producto', _headerStyle, 96, y);
+    _drawText(canvas, 'Cant', _headerStyle, 760, y, align: TextAlign.center, maxWidth: 80);
+    _drawText(canvas, 'Total', _headerStyle, 874, y, align: TextAlign.right, maxWidth: 120);
+    y += 18;
+    canvas.drawLine(
+      Offset(96, y),
+      Offset(width - 96, y),
+      Paint()
+        ..color = AppTheme.greyLight
+        ..strokeWidth = 1.5,
+    );
+    y += 18;
+
+    for (final item in items) {
+      final rowTop = y;
+      final rowHeight = 92.0;
+      _drawText(
+        canvas,
+        item.productName,
+        const TextStyle(fontSize: 24, color: Color(0xFF1F1F1F), fontWeight: FontWeight.w600),
+        96,
+        rowTop,
+        maxWidth: 620,
+      );
+      _drawText(
+        canvas,
+        '${item.quantity}',
+        const TextStyle(fontSize: 24, color: Color(0xFF1F1F1F), fontWeight: FontWeight.w700),
+        760,
+        rowTop,
+        align: TextAlign.center,
+        maxWidth: 80,
+      );
+      _drawText(
+        canvas,
+        Formatters.formatCurrency(item.subtotal),
+        const TextStyle(fontSize: 24, color: AppTheme.brandRed, fontWeight: FontWeight.bold),
+        874,
+        rowTop,
+        align: TextAlign.right,
+        maxWidth: 120,
+      );
+      y += rowHeight;
+      canvas.drawLine(
+        Offset(96, y - 8),
+        Offset(width - 96, y - 8),
+        Paint()
+          ..color = const Color(0xFFEDE7DF)
+          ..strokeWidth = 1,
+      );
+    }
+
+    y += 8;
+    y = _drawTotalRow(canvas, 'Subtotal', Formatters.formatCurrency(subtotal), y);
+    if (discount > 0) {
+      y = _drawTotalRow(canvas, 'Descuento', '-${Formatters.formatCurrency(discount)}', y, valueColor: AppTheme.successColor);
+    }
+    if (tax > 0) {
+      y = _drawTotalRow(canvas, 'IGV', Formatters.formatCurrency(tax), y);
+    }
+    canvas.drawLine(
+      Offset(96, y + 8),
+      Offset(width - 96, y + 8),
+      Paint()
+        ..color = AppTheme.brandRed.withValues(alpha: 0.25)
+        ..strokeWidth = 2,
+    );
+    y += 28;
+    _drawTotalRow(
+      canvas,
+      'TOTAL',
+      Formatters.formatCurrency(total),
+      y,
+      bold: true,
+      valueColor: AppTheme.brandRed,
+    );
+
+    y += 72;
+    _drawText(
+      canvas,
+      '¡Gracias por su compra!',
+      const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+      centerX,
+      y,
+      align: TextAlign.center,
+      maxWidth: 700,
+    );
+    y += 36;
+    _drawText(
+      canvas,
+      'Vuelva pronto a Tienda Gamez',
+      const TextStyle(fontSize: 20, color: Color(0xFF666666)),
+      centerX,
+      y,
+      align: TextAlign.center,
+      maxWidth: 700,
+    );
+
+    final image = await recorder.endRecording().toImage(width, totalHeight);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes!.buffer.asUint8List();
+  }
+
+  double _drawTotalRow(
+    Canvas canvas,
+    String label,
+    String value,
+    double y, {
+    bool bold = false,
+    Color? valueColor,
+  }) {
+    _drawText(
+      canvas,
+      label,
+      TextStyle(
+        fontSize: bold ? 26 : 22,
+        fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+        color: const Color(0xFF333333),
+      ),
+      96,
+      y,
+      maxWidth: 400,
+    );
+    _drawText(
+      canvas,
+      value,
+      TextStyle(
+        fontSize: bold ? 26 : 22,
+        fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+        color: valueColor ?? const Color(0xFF333333),
+      ),
+      984,
+      y,
+      align: TextAlign.right,
+      maxWidth: 220,
+    );
+    return y + (bold ? 40 : 34);
+  }
+
+  void _drawCircle(Canvas canvas, Offset center, double radius, Color color) {
+    canvas.drawCircle(center, radius, Paint()..color = color);
+  }
+
+  double _drawText(
+    Canvas canvas,
+    String text,
+    TextStyle style,
+    double x,
+    double y, {
+    TextAlign align = TextAlign.left,
+    double maxWidth = 800,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textAlign: align,
+      maxLines: 2,
+    )..layout(maxWidth: maxWidth);
+    painter.paint(canvas, Offset(x - (align == TextAlign.center ? painter.width / 2 : 0), y));
+    return painter.height;
+  }
+
+  static const TextStyle _sectionLabelStyle = TextStyle(
+    fontSize: 18,
+    color: Color(0xFF888888),
+    fontWeight: FontWeight.w600,
+  );
+
+  static const TextStyle _sectionValueStyle = TextStyle(
+    fontSize: 18,
+    color: Color(0xFF1F1F1F),
+    fontWeight: FontWeight.w600,
+  );
+
+  static const TextStyle _headerStyle = TextStyle(
+    fontSize: 18,
+    color: Color(0xFF666666),
+    fontWeight: FontWeight.w700,
+  );
 
   Widget _totalLine(String label, String value, {bool bold = false, Color? color}) {
     return Padding(

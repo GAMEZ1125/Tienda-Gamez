@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
@@ -30,6 +35,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _hasTax = true;
   double _taxRate = 0.18;
   final _taxRateCtrl = TextEditingController(text: '18');
+  String? _imagePath;
   bool _isLoading = false;
   bool _isEditing = false;
 
@@ -59,6 +65,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _stockController.text = product.stock.toString();
       _minStockController.text = product.minStock.toString();
       _barcodeController.text = product.barcode ?? '';
+      _imagePath = product.imagePath;
       _selectedCategory = product.category;
       _isActive = product.isActive;
       _hasTax = product.hasTax;
@@ -79,6 +86,28 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _barcodeController.dispose();
     _taxRateCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (image == null || !mounted) return;
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(appDir.path, 'product_images'));
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}${p.extension(image.path)}';
+    final savedPath = p.join(imagesDir.path, fileName);
+    await File(image.path).copy(savedPath);
+
+    setState(() => _imagePath = savedPath);
+  }
+
+  void _removeImage() {
+    setState(() => _imagePath = null);
   }
 
   Future<void> _save() async {
@@ -102,6 +131,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           : _barcodeController.text.trim(),
       isActive: _isActive,
       taxRate: _hasTax ? _taxRate : 0.0,
+      imagePath: _imagePath,
     );
 
     try {
@@ -185,6 +215,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildImagePicker(),
+                    const SizedBox(height: 16),
+
                     // Name
                     TextFormField(
                       controller: _nameController,
@@ -355,6 +388,71 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    final hasImage = _imagePath != null && _imagePath!.isNotEmpty && File(_imagePath!).existsSync();
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Imagen del producto',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 180,
+                width: double.infinity,
+                color: AppTheme.pearl,
+                child: hasImage
+                    ? Image.file(
+                        File(_imagePath!),
+                        fit: BoxFit.cover,
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.photo_outlined, size: 52, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sin imagen',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.upload_file),
+                    label: Text(hasImage ? 'Cambiar imagen' : 'Subir imagen'),
+                  ),
+                ),
+                if (hasImage) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _removeImage,
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Quitar imagen',
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -17,7 +17,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _stats;
   List<Debt> _overdueDebts = [];
   List<Debt> _dueSoonDebts = [];
-  List<Debt> _allDebts = [];
   bool _isLoading = true;
   bool _notificationsShown = false;
 
@@ -42,7 +41,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _stats = stats;
       _overdueDebts = overdue;
       _dueSoonDebts = dueSoon;
-      _allDebts = allDebts;
       _calendarEvents = _buildEventsMap(allDebts);
       _isLoading = false;
     });
@@ -535,10 +533,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (events.isEmpty) return null;
 
                 // Check if any event is overdue (past due + unpaid)
-                final hasOverdue = events.any((d) =>
-                    d is Debt && d.status != 'paid' && d.dueDate.isBefore(DateTime.now()));
-                final hasPending = events.any((d) =>
-                    d is Debt && d.status != 'paid' && !d.dueDate.isBefore(DateTime.now()));
+                final debts = events.whereType<Debt>();
+                final hasOverdue = debts.any((d) => d.status != 'paid' && d.dueDate.isBefore(DateTime.now()));
+                final hasPending = debts.any((d) => d.status != 'paid' && !d.dueDate.isBefore(DateTime.now()));
 
                 return Positioned(
                   bottom: 1,

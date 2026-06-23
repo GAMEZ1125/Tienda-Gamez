@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../blocs/cart/cart_bloc.dart';
@@ -19,29 +21,45 @@ class POSScreen extends StatefulWidget {
 
 class _POSScreenState extends State<POSScreen> {
   final _searchController = TextEditingController();
-  List<Product> _searchResults = [];
-  bool _isSearching = false;
+  final CartBloc _cartBloc = CartBloc();
+  final List<Product> _allProducts = [];
+  List<Product> _visibleProducts = [];
+  bool _isLoadingProducts = true;
+  _ProductViewMode _viewMode = _ProductViewMode.card;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cartBloc.close();
     super.dispose();
   }
 
-  Future<void> _searchProducts(String query) async {
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
-      return;
-    }
-    setState(() => _isSearching = true);
-    final results = await DatabaseHelper.searchProducts(query);
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final results = await DatabaseHelper.getAllProducts();
     setState(() {
-      _searchResults = results;
-      _isSearching = false;
+      _allProducts
+        ..clear()
+        ..addAll(results);
+      _applyFilter(_searchController.text);
+      _isLoadingProducts = false;
     });
+  }
+
+  void _applyFilter(String query) {
+    final normalized = query.trim().toLowerCase();
+    _visibleProducts = normalized.isEmpty
+        ? List<Product>.from(_allProducts)
+        : _allProducts.where((product) {
+            return product.name.toLowerCase().contains(normalized) ||
+                (product.category?.toLowerCase().contains(normalized) ?? false) ||
+                (product.barcode?.toLowerCase().contains(normalized) ?? false);
+          }).toList();
   }
 
   Future<void> _openScanner() async {
@@ -78,31 +96,34 @@ class _POSScreenState extends State<POSScreen> {
     }
 
     // Agregar producto al carrito
-    context.read<CartBloc>().add(AddProductToCart(product));
-
     if (mounted) {
-      _searchController.text = product.name;
-      _searchProducts(product.name);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ ${product.name} agregado al carrito'),
-          backgroundColor: AppTheme.successColor,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      setState(() {
+        _searchController.text = product.name;
+        _applyFilter(product.name);
+      });
+      _addProductToCart(product);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => CartBloc(),
+    return BlocProvider.value(
+      value: _cartBloc,
       child: BlocBuilder<CartBloc, CartState>(
         builder: (context, cartState) {
           return Scaffold(
             appBar: AppBar(
               title: const Text('Punto de Venta'),
               actions: [
+                IconButton(
+                  icon: Icon(_viewMode == _ProductViewMode.card ? Icons.view_list : Icons.grid_view),
+                  tooltip: _viewMode == _ProductViewMode.card ? 'Ver lista' : 'Ver tarjetas',
+                  onPressed: () => setState(() {
+                    _viewMode = _viewMode == _ProductViewMode.card
+                        ? _ProductViewMode.list
+                        : _ProductViewMode.card;
+                  }),
+                ),
                 IconButton(
                   icon: const Icon(Icons.history),
                   tooltip: 'Historial de Ventas',
@@ -127,8 +148,10 @@ class _POSScreenState extends State<POSScreen> {
                                 ? IconButton(
                                     icon: const Icon(Icons.clear),
                                     onPressed: () {
-                                      _searchController.clear();
-                                      _searchProducts('');
+                                      setState(() {
+                                        _searchController.clear();
+                                        _applyFilter('');
+                                      });
                                     },
                                   )
                                 : IconButton(
@@ -137,55 +160,59 @@ class _POSScreenState extends State<POSScreen> {
                                     tooltip: 'Escanear código de barras',
                                   ),
                           ),
-                          onChanged: _searchProducts,
+                          onChanged: (value) {
+                            setState(() => _applyFilter(value));
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Products grid
+                // Products
                 Expanded(
                   flex: 5,
-                  child: _isSearching
+                  child: _isLoadingProducts
                       ? const Center(child: CircularProgressIndicator())
-                      : _searchResults.isEmpty
+                      : _visibleProducts.isEmpty
                           ? EmptyState(
                               icon: Icons.shopping_bag_outlined,
-                              title: 'Busca productos para vender',
-                              subtitle: 'Usa el buscador o escanea un código de barras',
+                              title: _searchController.text.isEmpty
+                                  ? 'No hay productos activos'
+                                  : 'No se encontraron productos',
+                              subtitle: _searchController.text.isEmpty
+                                  ? 'Agrega o activa productos desde inventario'
+                                  : 'Usa el buscador o escanea un código de barras',
                             )
-                          : GridView.builder(
-                              padding: const EdgeInsets.all(8),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.2,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                              ),
-                              itemCount: _searchResults.length,
-                              itemBuilder: (context, index) {
-                                final product = _searchResults[index];
-                                return _ProductCard(
-                                  product: product,
-                                  onTap: () {
-                                    if (product.stock <= 0) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Producto agotado')),
-                                      );
-                                      return;
-                                    }
-                                    context.read<CartBloc>().add(AddProductToCart(product));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('${product.name} agregado al carrito'),
-                                        duration: const Duration(seconds: 1),
-                                      ),
+                          : _viewMode == _ProductViewMode.card
+                              ? GridView.builder(
+                                  padding: const EdgeInsets.all(8),
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: MediaQuery.of(context).size.width > 700 ? 3 : 2,
+                                    childAspectRatio: 0.82,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
+                                  itemCount: _visibleProducts.length,
+                                  itemBuilder: (context, index) {
+                                    final product = _visibleProducts[index];
+                                    return _ProductCard(
+                                      product: product,
+                                      onTap: () => _addProductToCart(product),
                                     );
                                   },
-                                );
-                              },
-                            ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(8),
+                                  itemCount: _visibleProducts.length,
+                                  itemBuilder: (context, index) {
+                                    final product = _visibleProducts[index];
+                                    return _ProductListTile(
+                                      product: product,
+                                      onTap: () => _addProductToCart(product),
+                                    );
+                                  },
+                                ),
                 ),
 
                 // Cart summary
@@ -204,6 +231,22 @@ class _POSScreenState extends State<POSScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const _SalesHistorySheet(),
+    );
+  }
+
+  void _addProductToCart(Product product) {
+    if (product.stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto agotado')),
+      );
+      return;
+    }
+    _cartBloc.add(AddProductToCart(product));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product.name} agregado al carrito'),
+        duration: const Duration(seconds: 1),
+      ),
     );
   }
 }
@@ -225,8 +268,18 @@ class _ProductCard extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    color: AppTheme.pearl,
+                    child: _ProductImage(product: product),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
               Text(
                 product.name,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -235,7 +288,7 @@ class _ProductCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const Spacer(),
+              const SizedBox(height: 6),
               Text(
                 Formatters.formatCurrency(product.price),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -267,6 +320,75 @@ class _ProductCard extends StatelessWidget {
     );
   }
 }
+
+class _ProductListTile extends StatelessWidget {
+  final Product product;
+  final VoidCallback onTap;
+
+  const _ProductListTile({required this.product, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.all(10),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 60,
+            height: 60,
+            color: AppTheme.pearl,
+            child: _ProductImage(product: product),
+          ),
+        ),
+        title: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          '${Formatters.formatCurrency(product.price)} • Stock: ${product.stock}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Icon(
+          product.stock <= 0 ? Icons.block : Icons.add_shopping_cart,
+          color: product.stock <= 0 ? AppTheme.errorColor : AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  final Product product;
+
+  const _ProductImage({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = product.imagePath;
+    if (imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync()) {
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+
+    return Container(
+      color: AppTheme.pearl,
+      child: Center(
+        child: Icon(
+          Icons.inventory_2_outlined,
+          size: 38,
+          color: Colors.grey[400],
+        ),
+      ),
+    );
+  }
+}
+
+enum _ProductViewMode { card, list }
 
 class _CartSummary extends StatelessWidget {
   final CartState cartState;

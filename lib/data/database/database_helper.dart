@@ -933,6 +933,19 @@ class DatabaseHelper {
     return await _loadPurchaseOrderItems(maps);
   }
 
+  static Future<List<PurchaseOrder>> getPendingPurchaseOrders() async {
+    return getPurchaseOrdersByStatus('pending');
+  }
+
+  static Future<double> getTotalPendingPurchaseOrders() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(total), 0) as total FROM purchase_orders WHERE status = ?',
+      ['pending'],
+    );
+    return (result.first['total'] as num).toDouble();
+  }
+
   static Future<PurchaseOrder?> getPurchaseOrderById(int id) async {
     final db = await database;
     final maps = await db.query('purchase_orders', where: 'id = ?', whereArgs: [id]);
