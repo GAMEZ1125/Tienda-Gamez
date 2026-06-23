@@ -12,7 +12,7 @@ class Product extends Equatable {
   final String? barcode;
   final String? imagePath;
   final bool isActive;
-  final bool hasTax;
+  final double taxRate; // 0.0 = exonerado, 0.18 = 18% IGV
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -28,11 +28,13 @@ class Product extends Equatable {
     this.barcode,
     this.imagePath,
     this.isActive = true,
-    this.hasTax = true,
+    this.taxRate = 0.18,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  bool get hasTax => taxRate > 0;
 
   Product copyWith({
     int? id,
@@ -46,7 +48,7 @@ class Product extends Equatable {
     String? barcode,
     String? imagePath,
     bool? isActive,
-    bool? hasTax,
+    double? taxRate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -62,7 +64,7 @@ class Product extends Equatable {
       barcode: barcode ?? this.barcode,
       imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
-      hasTax: hasTax ?? this.hasTax,
+      taxRate: taxRate ?? this.taxRate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -81,7 +83,7 @@ class Product extends Equatable {
       'barcode': barcode,
       'imagePath': imagePath,
       'isActive': isActive ? 1 : 0,
-      'hasTax': hasTax ? 1 : 0,
+      'taxRate': taxRate,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -100,7 +102,7 @@ class Product extends Equatable {
       barcode: map['barcode'] as String?,
       imagePath: map['imagePath'] as String?,
       isActive: (map['isActive'] as int?) == 1,
-      hasTax: (map['hasTax'] as int?) == 1,
+      taxRate: (map['taxRate'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -122,7 +124,7 @@ class Product extends Equatable {
         barcode,
         imagePath,
         isActive,
-        hasTax,
+        taxRate,
         createdAt,
         updatedAt,
       ];

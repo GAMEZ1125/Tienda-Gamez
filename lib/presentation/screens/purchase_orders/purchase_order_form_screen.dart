@@ -18,10 +18,13 @@ class PurchaseOrderFormScreen extends StatefulWidget {
 
 class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
   final _notesCtrl = TextEditingController();
+  final _taxRateCtrl = TextEditingController(text: '18');
   Supplier? _supplier;
   List<_OrderItem> _items = [];
   bool _isLoading = false;
   bool _isEditing = false;
+  bool _hasTax = true;
+  double _taxRate = 0.18;
 
   @override
   void initState() {
@@ -62,11 +65,12 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
   @override
   void dispose() {
     _notesCtrl.dispose();
+    _taxRateCtrl.dispose();
     super.dispose();
   }
 
   double get _subtotal => _items.fold(0.0, (s, i) => s + i.subtotal);
-  double get _tax => _subtotal * 0.18;
+  double get _tax => _hasTax ? _subtotal * _taxRate : 0.0;
   double get _total => _subtotal + _tax;
 
   Future<void> _selectSupplier() async {
@@ -296,6 +300,45 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
 
             const SizedBox(height: 16),
 
+            // IGV toggle
+            Card(
+              margin: EdgeInsets.zero,
+              child: SwitchListTile(
+                title: const Text('Aplica IGV/IVA'),
+                subtitle: Text(_hasTax ? '${(_taxRate * 100).toStringAsFixed(0)}% de impuesto' : 'Sin impuesto'),
+                value: _hasTax,
+                onChanged: (v) => setState(() {
+                  _hasTax = v;
+                  if (v && _taxRate == 0) _taxRate = 0.18;
+                }),
+                secondary: Icon(
+                  _hasTax ? Icons.receipt : Icons.money_off,
+                  color: _hasTax ? AppTheme.primaryColor : Colors.grey,
+                ),
+              ),
+            ),
+            if (_hasTax)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _taxRateCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Porcentaje de impuesto',
+                    prefixIcon: Icon(Icons.percent),
+                    suffixText: '%',
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) {
+                    final parsed = double.tryParse(v);
+                    if (parsed != null && parsed >= 0) {
+                      _taxRate = parsed / 100;
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+            const SizedBox(height: 12),
+
             // Totals
             Card(
               margin: EdgeInsets.zero,
@@ -304,7 +347,8 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
                 child: Column(
                   children: [
                     _row('Subtotal', Formatters.formatCurrency(_subtotal)),
-                    _row('IGV (18%)', Formatters.formatCurrency(_tax)),
+                    if (_hasTax)
+                      _row('IGV (${(_taxRate * 100).toStringAsFixed(0)}%)', Formatters.formatCurrency(_tax)),
                     const Divider(),
                     _row('TOTAL', Formatters.formatCurrency(_total), bold: true),
                   ],

@@ -51,7 +51,7 @@ class DatabaseHelper {
         barcode TEXT,
         imagePath TEXT,
         isActive INTEGER DEFAULT 1,
-        hasTax INTEGER DEFAULT 1,
+        taxRate REAL DEFAULT 0.18,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -286,6 +286,11 @@ class DatabaseHelper {
           });
         }
       }
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE products ADD COLUMN taxRate REAL DEFAULT 0.0');
+      await db.execute('UPDATE products SET taxRate = 0.18 WHERE hasTax = 1');
+      await db.execute('UPDATE products SET taxRate = 0.0 WHERE hasTax = 0');
     }
   }
 

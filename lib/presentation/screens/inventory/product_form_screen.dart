@@ -28,6 +28,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   String? _selectedCategory;
   bool _isActive = true;
   bool _hasTax = true;
+  double _taxRate = 0.18;
+  final _taxRateCtrl = TextEditingController(text: '18');
   bool _isLoading = false;
   bool _isEditing = false;
 
@@ -60,6 +62,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _selectedCategory = product.category;
       _isActive = product.isActive;
       _hasTax = product.hasTax;
+      _taxRate = product.taxRate;
+      _taxRateCtrl.text = (product.taxRate * 100).toStringAsFixed(0);
     }
     setState(() => _isLoading = false);
   }
@@ -73,6 +77,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _stockController.dispose();
     _minStockController.dispose();
     _barcodeController.dispose();
+    _taxRateCtrl.dispose();
     super.dispose();
   }
 
@@ -96,7 +101,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ? null
           : _barcodeController.text.trim(),
       isActive: _isActive,
-      hasTax: _hasTax,
+      taxRate: _hasTax ? _taxRate : 0.0,
     );
 
     try {
@@ -307,14 +312,36 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     // Tax toggle
                     SwitchListTile(
                       title: const Text('Aplica IGV/IVA'),
-                      subtitle: Text(_hasTax ? '18% de impuesto aplicado en venta' : 'Producto exonerado de impuestos'),
+                      subtitle: Text(_hasTax ? '${(_taxRate * 100).toStringAsFixed(0)}% de impuesto' : 'Producto exonerado de impuestos'),
                       value: _hasTax,
-                      onChanged: (v) => setState(() => _hasTax = v),
+                      onChanged: (v) => setState(() {
+                        _hasTax = v;
+                        if (v && _taxRate == 0) _taxRate = 0.18;
+                      }),
                       secondary: Icon(
                         _hasTax ? Icons.receipt : Icons.money_off,
                         color: _hasTax ? AppTheme.primaryColor : Colors.grey,
                       ),
                     ),
+                    if (_hasTax)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                        child: TextField(
+                          controller: _taxRateCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Porcentaje de impuesto',
+                            prefixIcon: Icon(Icons.percent),
+                            suffixText: '%',
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) {
+                            final parsed = double.tryParse(v);
+                            if (parsed != null && parsed >= 0) {
+                              _taxRate = parsed / 100;
+                            }
+                          },
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     // Active toggle
                     SwitchListTile(

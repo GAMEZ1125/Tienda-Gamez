@@ -153,7 +153,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         price: event.product.price,
         quantity: event.quantity,
         subtotal: event.product.price * event.quantity,
-        taxRate: event.product.hasTax ? state.taxRate : 0.0,
+        taxRate: event.product.taxRate,
       ));
     }
 
