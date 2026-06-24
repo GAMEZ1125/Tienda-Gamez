@@ -17,6 +17,7 @@ class HomeScreen extends StatelessWidget {
     if (location.startsWith('/purchase-orders')) return 4;
     if (location.startsWith('/categories')) return 2;
     if (location.startsWith('/stats')) return 0;
+    if (location.startsWith('/configuracion')) return 0;
     if (location.startsWith('/settings')) return 0;
     return 0;
   }

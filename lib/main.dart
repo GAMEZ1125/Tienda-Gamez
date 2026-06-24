@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:workmanager/workmanager.dart';
+import 'services/app_state.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'presentation/navigation/app_router.dart';
 import 'services/notification_service.dart';
-import 'services/preferences_service.dart';
-
-final PreferencesService preferencesService = PreferencesService();
+import 'services/drive_backup_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,15 @@ void main() async {
 
   // Schedule daily check at 8:00 AM
   await notificationService.scheduleDailyCheck();
+
+  // Initialize background tasks for Drive backups
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: kDebugMode,
+  );
+
+  // Initialize Google Drive backup session and schedule if available
+  await GoogleDriveBackupService.instance.bootstrap();
 
   runApp(const TiendaGamezApp());
 }

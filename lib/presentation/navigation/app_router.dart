@@ -19,6 +19,7 @@ import '../screens/debts/debt_form_screen.dart';
 import '../screens/debts/debt_detail_screen.dart';
 import '../screens/debts/credit_report_screen.dart';
 import '../screens/stats/stats_screen.dart';
+import '../screens/configuracion/configuracion_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/categories/categories_screen.dart';
 import '../screens/categories/category_form_screen.dart';
@@ -173,6 +174,10 @@ final GoRouter appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(child: StatsScreen()),
         ),
         GoRoute(
+          path: '/configuracion',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ConfiguracionScreen()),
+        ),
+        GoRoute(
           path: '/settings',
           pageBuilder: (context, state) => const NoTransitionPage(child: SettingsScreen()),
         ),
@@ -180,4 +185,3 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
-

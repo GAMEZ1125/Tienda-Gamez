@@ -4,8 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:tienda_gamez/main.dart';
-import 'package:tienda_gamez/services/preferences_service.dart';
+import '../../../services/app_state.dart';
+import '../../../services/drive_backup_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
@@ -25,6 +25,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _isExporting = false;
   bool _isImporting = false;
+  bool _isSigningInGoogle = false;
+  bool _isUploadingDriveBackup = false;
+  bool _isRestoringDriveBackup = false;
+  bool _askedForGoogleLogin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _promptGoogleLoginIfNeeded());
+  }
 
   @override
   void dispose() {
@@ -144,6 +154,180 @@ class _SettingsScreenState extends State<SettingsScreen> {
         duration: const Duration(seconds: 5),
       ),
     );
+  }
+
+  void _showInfo(String message, {Color backgroundColor = AppTheme.successColor}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
+
+  Future<void> _promptGoogleLoginIfNeeded() async {
+    if (!mounted || _askedForGoogleLogin || preferencesService.googleDriveSignedIn) return;
+    _askedForGoogleLogin = true;
+    final connectNow = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Conectar Google Drive'),
+        content: const Text(
+          'Para subir respaldos automáticos y restaurar datos desde Drive, debes iniciar sesión con Google.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Más tarde'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Iniciar sesión'),
+          ),
+        ],
+      ),
+    );
+    if (connectNow == true && mounted) {
+      await _connectGoogleDrive();
+    }
+  }
+
+  Future<void> _connectGoogleDrive() async {
+    setState(() => _isSigningInGoogle = true);
+    try {
+      final account = await GoogleDriveBackupService.instance.signIn();
+      if (!mounted) return;
+      if (account != null) {
+        _showInfo('Google conectado como ${account.displayName ?? account.email}');
+      } else {
+        _showInfo('No se pudo conectar con Google', backgroundColor: AppTheme.warningColor);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al conectar con Google', e);
+      }
+    } finally {
+      if (mounted) setState(() => _isSigningInGoogle = false);
+    }
+  }
+
+  Future<void> _disconnectGoogleDrive() async {
+    try {
+      await GoogleDriveBackupService.instance.signOut();
+      if (mounted) {
+        setState(() {});
+        _showInfo('Sesión de Google cerrada');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al cerrar sesión', e);
+      }
+    }
+  }
+
+  Future<void> _uploadDriveBackup() async {
+    if (!preferencesService.googleDriveSignedIn) {
+      final connected = await _connectGoogleDriveForAction();
+      if (!connected) return;
+    }
+    setState(() => _isUploadingDriveBackup = true);
+    try {
+      final message = await GoogleDriveBackupService.instance.uploadBackupNow();
+      if (!mounted) return;
+      if (message != null) {
+        _showInfo(message);
+      } else {
+        _showInfo(
+          'Debes iniciar sesión con Google para subir el respaldo',
+          backgroundColor: AppTheme.warningColor,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al subir backup a Drive', e);
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingDriveBackup = false);
+    }
+  }
+
+  Future<void> _restoreDriveBackup() async {
+    if (!preferencesService.googleDriveSignedIn) {
+      final connected = await _connectGoogleDriveForAction();
+      if (!connected) return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restaurar desde Drive'),
+        content: const Text(
+          'Esto reemplazará la base de datos actual con el último respaldo en Drive. '
+          '¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isRestoringDriveBackup = true);
+    try {
+      final message = await GoogleDriveBackupService.instance.restoreLatestBackup();
+      if (!mounted) return;
+      if (message != null) {
+        _showInfo(message);
+      } else {
+        _showInfo(
+          'No fue posible restaurar el respaldo',
+          backgroundColor: AppTheme.warningColor,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al restaurar desde Drive', e);
+      }
+    } finally {
+      if (mounted) setState(() => _isRestoringDriveBackup = false);
+    }
+  }
+
+  Future<void> _toggleAutoDriveBackup(bool value) async {
+    try {
+      await GoogleDriveBackupService.instance.setAutoBackupEnabled(value);
+      if (mounted) {
+        setState(() {});
+        _showInfo(
+          value ? 'Respaldo automático activado' : 'Respaldo automático desactivado',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('No se pudo cambiar el respaldo automático', e);
+      }
+    }
+  }
+
+  Future<bool> _connectGoogleDriveForAction() async {
+    if (preferencesService.googleDriveSignedIn) return true;
+    await _connectGoogleDrive();
+    return preferencesService.googleDriveSignedIn;
+  }
+
+  String _formatLastBackup(DateTime? dateTime) {
+    if (dateTime == null) {
+      return 'Nunca';
+    }
+    return Formatters.formatDateTime(dateTime);
   }
 
   Future<void> _showBackupInfo() async {
@@ -333,9 +517,124 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Backup section
+          // Drive backup section
           Text(
-            'Respaldo y Restauración',
+            'Google Drive y Respaldo',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: preferencesService.googleDriveSignedIn
+                        ? AppTheme.successColor.withValues(alpha: 0.15)
+                        : AppTheme.warningColor.withValues(alpha: 0.15),
+                    child: Icon(
+                      preferencesService.googleDriveSignedIn ? Icons.cloud_done : Icons.cloud_upload,
+                      color: preferencesService.googleDriveSignedIn
+                          ? AppTheme.successColor
+                          : AppTheme.warningColor,
+                    ),
+                  ),
+                  title: Text(
+                    preferencesService.googleDriveSignedIn
+                        ? 'Cuenta conectada'
+                        : 'Conecta tu cuenta de Google',
+                  ),
+                  subtitle: Text(
+                    preferencesService.googleDriveSignedIn
+                        ? '${preferencesService.googleDriveDisplayName ?? preferencesService.googleDriveEmail ?? 'Google'}\nÚltimo respaldo: ${_formatLastBackup(preferencesService.lastDriveBackupAt)}'
+                        : 'Sube y restaura respaldo en Drive, con copia diaria automática.',
+                  ),
+                  isThreeLine: preferencesService.googleDriveSignedIn,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Subir backup automáticamente, diariamente'),
+                    subtitle: const Text('Se ejecuta cuando la app tenga acceso a Google Drive'),
+                    value: preferencesService.autoDriveBackupEnabled,
+                    onChanged: _toggleAutoDriveBackup,
+                    activeColor: AppTheme.brandRed,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: 180,
+                        child: FilledButton.icon(
+                          onPressed: _isSigningInGoogle
+                              ? null
+                              : (preferencesService.googleDriveSignedIn
+                                  ? _disconnectGoogleDrive
+                                  : _connectGoogleDrive),
+                          icon: _isSigningInGoogle
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(
+                                  preferencesService.googleDriveSignedIn
+                                      ? Icons.logout
+                                      : Icons.login,
+                                ),
+                          label: Text(
+                            preferencesService.googleDriveSignedIn ? 'Cerrar sesión' : 'Conectar Google',
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: OutlinedButton.icon(
+                          onPressed: preferencesService.googleDriveSignedIn && !_isUploadingDriveBackup
+                              ? _uploadDriveBackup
+                              : null,
+                          icon: _isUploadingDriveBackup
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.backup),
+                          label: const Text('Subir backup a Drive'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: OutlinedButton.icon(
+                          onPressed: preferencesService.googleDriveSignedIn && !_isRestoringDriveBackup
+                              ? _restoreDriveBackup
+                              : null,
+                          icon: _isRestoringDriveBackup
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.restore),
+                          label: const Text('Restaurar Drive'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Local backup section
+          Text(
+            'Respaldo Local y Restauración',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),

@@ -166,6 +166,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () => context.push('/stats'),
           ),
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configuración',
+            onPressed: () => context.push('/configuracion'),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _load,
           ),

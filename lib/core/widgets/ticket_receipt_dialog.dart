@@ -494,7 +494,7 @@ class TicketReceiptDialog extends StatelessWidget {
       _drawText(
         canvas,
         Formatters.formatCurrency(item.subtotal),
-        const TextStyle(fontSize: 24, color: AppTheme.brandRed, fontWeight: FontWeight.bold),
+        TextStyle(fontSize: 24, color: AppTheme.brandRed, fontWeight: FontWeight.bold),
         874,
         rowTop,
         align: TextAlign.right,

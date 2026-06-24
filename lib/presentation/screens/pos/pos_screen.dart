@@ -623,7 +623,7 @@ class _CartSummary extends StatelessWidget {
                 controller: discountCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: isPercentage ? 'Porcentaje (%)' : 'Monto (\$)',
+                  labelText: isPercentage ? 'Porcentaje (%)' : r'Monto ($)',
                   prefixIcon: const Icon(Icons.discount),
                 ),
               ),
