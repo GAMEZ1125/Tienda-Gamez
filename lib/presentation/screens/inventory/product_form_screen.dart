@@ -465,15 +465,25 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.style, size: 18, color: AppTheme.primaryColor),
-          ),
+          variation.imagePath != null && variation.imagePath!.isNotEmpty && File(variation.imagePath!).existsSync()
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(variation.imagePath!),
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.style, size: 18, color: AppTheme.primaryColor),
+                ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -495,6 +505,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       'Stock: ${variation.stock}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
+                    if (variation.unitsPerPresentation > 1) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${variation.unitsPerPresentation}x',
+                          style: TextStyle(fontSize: 11, color: AppTheme.accentBlue, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                     if (variation.barcode != null) ...[
                       const SizedBox(width: 8),
                       Text(
@@ -528,96 +552,164 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final costCtrl = TextEditingController(text: _costController.text);
     final stockCtrl = TextEditingController(text: '0');
     final barcodeCtrl = TextEditingController();
+    final unitsCtrl = TextEditingController(text: '1');
+    String? imagePath;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nueva Variación'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre *',
-                  hintText: 'Ej: 350ml, Rojo, Talla M',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Nueva Variación'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Image picker
+                if (imagePath != null && imagePath!.isNotEmpty && File(imagePath!).existsSync())
+                  Container(
+                    height: 80,
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Stack(
+                        children: [
+                          Image.file(File(imagePath!), fit: BoxFit.cover, width: double.infinity),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => setDialogState(() => imagePath = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                        if (image != null) {
+                          final appDir = await getApplicationDocumentsDirectory();
+                          final imagesDir = Directory(p.join(appDir.path, 'product_images'));
+                          if (!await imagesDir.exists()) {
+                            await imagesDir.create(recursive: true);
+                          }
+                          final fileName = 'var_${DateTime.now().millisecondsSinceEpoch}${p.extension(image.path)}';
+                          final savedPath = p.join(imagesDir.path, fileName);
+                          await File(image.path).copy(savedPath);
+                          setDialogState(() => imagePath = savedPath);
+                        }
+                      },
+                      icon: const Icon(Icons.image_outlined, size: 18),
+                      label: const Text('Imagen (opcional)'),
+                    ),
+                  ),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre *',
+                    hintText: 'Ej: 350ml, Rojo, Pack x6',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: priceCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Precio *',
-                        prefixText: r'$ ',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: costCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Costo',
-                        prefixText: r'$ ',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: stockCtrl,
-                      decoration: const InputDecoration(labelText: 'Stock'),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: barcodeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Código barras',
-                        hintText: 'Opcional',
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: priceCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Precio *',
+                          prefixText: r'$ ',
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: costCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Costo',
+                          prefixText: r'$ ',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: unitsCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Unidades',
+                          hintText: '1=unidad, 6=pack',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: stockCtrl,
+                        decoration: const InputDecoration(labelText: 'Stock'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: barcodeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Código barras',
+                    hintText: 'Opcional',
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                final variation = ProductVariation(
+                  productId: widget.productId!,
+                  name: nameCtrl.text.trim(),
+                  price: double.tryParse(priceCtrl.text) ?? 0,
+                  cost: double.tryParse(costCtrl.text) ?? 0,
+                  stock: int.tryParse(stockCtrl.text) ?? 0,
+                  unitsPerPresentation: int.tryParse(unitsCtrl.text) ?? 1,
+                  barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+                  imagePath: imagePath,
+                );
+                await DatabaseHelper.insertVariation(variation);
+                await _loadVariations();
+                if (mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              final variation = ProductVariation(
-                productId: widget.productId!,
-                name: nameCtrl.text.trim(),
-                price: double.tryParse(priceCtrl.text) ?? 0,
-                cost: double.tryParse(costCtrl.text) ?? 0,
-                stock: int.tryParse(stockCtrl.text) ?? 0,
-                barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
-              );
-              await DatabaseHelper.insertVariation(variation);
-              await _loadVariations();
-              if (mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
   }
@@ -628,90 +720,158 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final costCtrl = TextEditingController(text: variation.cost.toString());
     final stockCtrl = TextEditingController(text: variation.stock.toString());
     final barcodeCtrl = TextEditingController(text: variation.barcode ?? '');
+    final unitsCtrl = TextEditingController(text: variation.unitsPerPresentation.toString());
+    String? imagePath = variation.imagePath;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Editar Variación'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nombre *'),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: priceCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Precio *',
-                        prefixText: r'$ ',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Editar Variación'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Image picker
+                if (imagePath != null && imagePath!.isNotEmpty && File(imagePath!).existsSync())
+                  Container(
+                    height: 80,
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Stack(
+                        children: [
+                          Image.file(File(imagePath!), fit: BoxFit.cover, width: double.infinity),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => setDialogState(() => imagePath = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      keyboardType: TextInputType.number,
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                        if (image != null) {
+                          final appDir = await getApplicationDocumentsDirectory();
+                          final imagesDir = Directory(p.join(appDir.path, 'product_images'));
+                          if (!await imagesDir.exists()) {
+                            await imagesDir.create(recursive: true);
+                          }
+                          final fileName = 'var_${DateTime.now().millisecondsSinceEpoch}${p.extension(image.path)}';
+                          final savedPath = p.join(imagesDir.path, fileName);
+                          await File(image.path).copy(savedPath);
+                          setDialogState(() => imagePath = savedPath);
+                        }
+                      },
+                      icon: const Icon(Icons.image_outlined, size: 18),
+                      label: const Text('Imagen (opcional)'),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: costCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Costo',
-                        prefixText: r'$ ',
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre *'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: priceCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Precio *',
+                          prefixText: r'$ ',
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
-                      keyboardType: TextInputType.number,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: stockCtrl,
-                      decoration: const InputDecoration(labelText: 'Stock'),
-                      keyboardType: TextInputType.number,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: costCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Costo',
+                          prefixText: r'$ ',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: barcodeCtrl,
-                      decoration: const InputDecoration(labelText: 'Código barras'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: unitsCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Unidades',
+                          hintText: '1=unidad, 6=pack',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: stockCtrl,
+                        decoration: const InputDecoration(labelText: 'Stock'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: barcodeCtrl,
+                  decoration: const InputDecoration(labelText: 'Código barras'),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                final updated = variation.copyWith(
+                  name: nameCtrl.text.trim(),
+                  price: double.tryParse(priceCtrl.text) ?? variation.price,
+                  cost: double.tryParse(costCtrl.text) ?? variation.cost,
+                  stock: int.tryParse(stockCtrl.text) ?? variation.stock,
+                  unitsPerPresentation: int.tryParse(unitsCtrl.text) ?? variation.unitsPerPresentation,
+                  barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+                  imagePath: imagePath,
+                  updatedAt: DateTime.now(),
+                );
+                await DatabaseHelper.updateVariation(updated);
+                await _loadVariations();
+                if (mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Actualizar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              final updated = variation.copyWith(
-                name: nameCtrl.text.trim(),
-                price: double.tryParse(priceCtrl.text) ?? variation.price,
-                cost: double.tryParse(costCtrl.text) ?? variation.cost,
-                stock: int.tryParse(stockCtrl.text) ?? variation.stock,
-                barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
-                updatedAt: DateTime.now(),
-              );
-              await DatabaseHelper.updateVariation(updated);
-              await _loadVariations();
-              if (mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Actualizar'),
-          ),
-        ],
       ),
     );
   }

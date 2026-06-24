@@ -8,6 +8,8 @@ class ProductVariation extends Equatable {
   final double price;
   final double cost;
   final int stock;
+  final int unitsPerPresentation;
+  final String? imagePath;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -20,6 +22,8 @@ class ProductVariation extends Equatable {
     required this.price,
     required this.cost,
     this.stock = 0,
+    this.unitsPerPresentation = 1,
+    this.imagePath,
     this.isActive = true,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -36,6 +40,8 @@ class ProductVariation extends Equatable {
     double? price,
     double? cost,
     int? stock,
+    int? unitsPerPresentation,
+    String? imagePath,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -48,6 +54,8 @@ class ProductVariation extends Equatable {
       price: price ?? this.price,
       cost: cost ?? this.cost,
       stock: stock ?? this.stock,
+      unitsPerPresentation: unitsPerPresentation ?? this.unitsPerPresentation,
+      imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -63,6 +71,8 @@ class ProductVariation extends Equatable {
       'price': price,
       'cost': cost,
       'stock': stock,
+      'unitsPerPresentation': unitsPerPresentation,
+      'imagePath': imagePath,
       'isActive': isActive ? 1 : 0,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -78,6 +88,8 @@ class ProductVariation extends Equatable {
       price: (map['price'] as num).toDouble(),
       cost: (map['cost'] as num?)?.toDouble() ?? 0.0,
       stock: map['stock'] as int? ?? 0,
+      unitsPerPresentation: map['unitsPerPresentation'] as int? ?? 1,
+      imagePath: map['imagePath'] as String?,
       isActive: (map['isActive'] as int?) == 1,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
@@ -93,6 +105,8 @@ class ProductVariation extends Equatable {
         price,
         cost,
         stock,
+        unitsPerPresentation,
+        imagePath,
         isActive,
         createdAt,
         updatedAt,

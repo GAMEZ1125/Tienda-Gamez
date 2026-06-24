@@ -245,6 +245,16 @@ class _POSScreenState extends State<POSScreen> {
     _showVariationSelector(product);
   }
 
+  int _calculateEffectiveStock(Product product, ProductVariation variation) {
+    final unitsPerPkg = product.unitsPerPackage;
+    final unitsPerPres = variation.unitsPerPresentation;
+
+    if (unitsPerPkg > 1) {
+      return (variation.stock * unitsPerPres * unitsPerPkg).toInt();
+    }
+    return variation.stock * unitsPerPres;
+  }
+
   Future<void> _showVariationSelector(Product product) async {
     final variations = await DatabaseHelper.getVariationsByProduct(product.id!);
 
@@ -272,28 +282,42 @@ class _POSScreenState extends State<POSScreen> {
             children: [
               const Text('Selecciona una variación:', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 12),
-              ...variations.where((v) => v.isActive).map((v) => ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: v.isOutOfStock
-                          ? AppTheme.errorColor.withValues(alpha: 0.1)
-                          : AppTheme.primaryColor.withValues(alpha: 0.1),
-                      child: Icon(
-                        v.isOutOfStock ? Icons.block : Icons.check,
-                        size: 16,
-                        color: v.isOutOfStock ? AppTheme.errorColor : AppTheme.primaryColor,
-                      ),
+              ...variations.where((v) => v.isActive).map((v) {
+                final effectiveStock = _calculateEffectiveStock(product, v);
+                final isOutOfStock = effectiveStock <= 0;
+                return ListTile(
+                  leading: v.imagePath != null && v.imagePath!.isNotEmpty && File(v.imagePath!).existsSync()
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(v.imagePath!),
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : CircleAvatar(
+                          backgroundColor: isOutOfStock
+                              ? AppTheme.errorColor.withValues(alpha: 0.1)
+                              : AppTheme.primaryColor.withValues(alpha: 0.1),
+                          child: Icon(
+                            isOutOfStock ? Icons.block : Icons.check,
+                            size: 16,
+                            color: isOutOfStock ? AppTheme.errorColor : AppTheme.primaryColor,
+                          ),
+                        ),
+                  title: Text(v.name),
+                  subtitle: Text(
+                    '\$${v.price.toStringAsFixed(2)} · ${effectiveStock > 0 ? 'Stock: $effectiveStock' : 'Agotado'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
+                    style: TextStyle(
+                      color: isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
+                      fontSize: 12,
                     ),
-                    title: Text(v.name),
-                    subtitle: Text(
-                      '\$${v.price.toStringAsFixed(2)} · Stock: ${v.stock}',
-                      style: TextStyle(
-                        color: v.isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                    enabled: !v.isOutOfStock,
-                    onTap: () => Navigator.pop(ctx, v),
-                  )),
+                  ),
+                  enabled: !isOutOfStock,
+                  onTap: () => Navigator.pop(ctx, v),
+                );
+              }),
             ],
           ),
         ),
@@ -307,7 +331,8 @@ class _POSScreenState extends State<POSScreen> {
     );
 
     if (selectedVariation != null) {
-      if (selectedVariation.isOutOfStock) {
+      final effectiveStock = _calculateEffectiveStock(product, selectedVariation);
+      if (effectiveStock <= 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Variación agotada')),
@@ -318,7 +343,8 @@ class _POSScreenState extends State<POSScreen> {
 
       final variationProduct = product.copyWith(
         price: selectedVariation.price,
-        stock: selectedVariation.stock,
+        cost: selectedVariation.cost > 0 ? selectedVariation.cost : product.cost,
+        stock: effectiveStock,
       );
 
       _cartBloc.add(AddProductToCart(variationProduct));

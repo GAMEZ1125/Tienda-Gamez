@@ -12,7 +12,8 @@ class Product extends Equatable {
   final String? barcode;
   final String? imagePath;
   final bool isActive;
-  final double taxRate; // 0.0 = exonerado, 0.18 = 18% IGV
+  final double taxRate;
+  final int unitsPerPackage;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,12 +30,17 @@ class Product extends Equatable {
     this.imagePath,
     this.isActive = true,
     this.taxRate = 0.18,
+    this.unitsPerPackage = 1,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   bool get hasTax => taxRate > 0;
+
+  /// Returns effective stock in base units (considering unitsPerPackage).
+  /// If product is "Caja x30" with stock=10, effectiveStock = 300 units.
+  int get effectiveStock => stock * unitsPerPackage;
 
   Product copyWith({
     int? id,
@@ -49,6 +55,7 @@ class Product extends Equatable {
     String? imagePath,
     bool? isActive,
     double? taxRate,
+    int? unitsPerPackage,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -65,6 +72,7 @@ class Product extends Equatable {
       imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
       taxRate: taxRate ?? this.taxRate,
+      unitsPerPackage: unitsPerPackage ?? this.unitsPerPackage,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -84,6 +92,7 @@ class Product extends Equatable {
       'imagePath': imagePath,
       'isActive': isActive ? 1 : 0,
       'taxRate': taxRate,
+      'unitsPerPackage': unitsPerPackage,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -103,6 +112,7 @@ class Product extends Equatable {
       imagePath: map['imagePath'] as String?,
       isActive: (map['isActive'] as int?) == 1,
       taxRate: (map['taxRate'] as num?)?.toDouble() ?? 0.0,
+      unitsPerPackage: map['unitsPerPackage'] as int? ?? 1,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -125,6 +135,7 @@ class Product extends Equatable {
         imagePath,
         isActive,
         taxRate,
+        unitsPerPackage,
         createdAt,
         updatedAt,
       ];

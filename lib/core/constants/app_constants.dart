@@ -4,7 +4,7 @@ class AppConstants {
 
   // Database
   static const String databaseName = 'tienda_gamez.db';
-  static const int databaseVersion = 5;
+  static const int databaseVersion = 6;
 
   // Pagination
   static const int pageSize = 20;

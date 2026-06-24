@@ -59,6 +59,7 @@ class DatabaseHelper {
         imagePath TEXT,
         isActive INTEGER DEFAULT 1,
         taxRate REAL DEFAULT 0.18,
+        unitsPerPackage INTEGER DEFAULT 1,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -251,6 +252,8 @@ class DatabaseHelper {
         price REAL NOT NULL,
         cost REAL NOT NULL DEFAULT 0,
         stock INTEGER DEFAULT 0,
+        unitsPerPresentation INTEGER DEFAULT 1,
+        imagePath TEXT,
         isActive INTEGER DEFAULT 1,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
@@ -393,6 +396,21 @@ class DatabaseHelper {
       final hasPaymentType = columns.any((c) => c['name'] == 'paymentType');
       if (!hasPaymentType) {
         await db.execute("ALTER TABLE purchase_orders ADD COLUMN paymentType TEXT DEFAULT 'cash'");
+      }
+    }
+    if (oldVersion < 6) {
+      // Add unitsPerPackage to products
+      final prodCols = await db.rawQuery('PRAGMA table_info(products)');
+      if (!prodCols.any((c) => c['name'] == 'unitsPerPackage')) {
+        await db.execute("ALTER TABLE products ADD COLUMN unitsPerPackage INTEGER DEFAULT 1");
+      }
+      // Add unitsPerPresentation and imagePath to product_variations
+      final varCols = await db.rawQuery('PRAGMA table_info(product_variations)');
+      if (!varCols.any((c) => c['name'] == 'unitsPerPresentation')) {
+        await db.execute("ALTER TABLE product_variations ADD COLUMN unitsPerPresentation INTEGER DEFAULT 1");
+      }
+      if (!varCols.any((c) => c['name'] == 'imagePath')) {
+        await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
       }
     }
   }
@@ -1539,6 +1557,58 @@ class DatabaseHelper {
       'UPDATE product_variations SET stock = stock - ?, updatedAt = ? WHERE id = ?',
       [quantity, DateTime.now().toIso8601String(), id],
     );
+    RealtimeBackupService.instance.onDatabaseChanged();
+  }
+
+  /// Deducts stock for a sale item, handling variation conversions.
+  ///
+  /// Case 1 (Package product): Product is "Caja x30" (stock: 10 packages).
+  ///   Variation "1 Unidad" (unitsPerPresentation: 1) → deducts 1×1/30 = 0.0333 packages.
+  ///
+  /// Case 2 (Simple product): Product is "Gaseosa" (stock: 20 units).
+  ///   Variation "Pack x6" (unitsPerPresentation: 6) → deducts 1×6 = 6 units.
+  static Future<void> deductStockForSale({
+    required int productId,
+    required int quantity,
+    int? variationId,
+  }) async {
+    final db = await database;
+
+    if (variationId != null) {
+      final variationMaps = await db.query('product_variations', where: 'id = ?', whereArgs: [variationId]);
+      if (variationMaps.isEmpty) return;
+      final variation = ProductVariation.fromMap(variationMaps.first);
+
+      final unitsPerPres = variation.unitsPerPresentation;
+
+      final productMaps = await db.query('products', where: 'id = ?', whereArgs: [productId]);
+      final unitsPerPkg = productMaps.isNotEmpty
+          ? (productMaps.first['unitsPerPackage'] as int? ?? 1)
+          : 1;
+
+      double unitsToDeduct;
+      if (unitsPerPkg > 1) {
+        unitsToDeduct = (quantity * unitsPerPres) / unitsPerPkg;
+      } else {
+        unitsToDeduct = (quantity * unitsPerPres).toDouble();
+      }
+
+      await db.rawUpdate(
+        'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+        [unitsToDeduct, DateTime.now().toIso8601String(), productId],
+      );
+
+      await db.rawUpdate(
+        'UPDATE product_variations SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+        [quantity, DateTime.now().toIso8601String(), variationId],
+      );
+    } else {
+      await db.rawUpdate(
+        'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+        [quantity, DateTime.now().toIso8601String(), productId],
+      );
+    }
+
     RealtimeBackupService.instance.onDatabaseChanged();
   }
 
