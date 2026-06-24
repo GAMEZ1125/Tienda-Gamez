@@ -113,6 +113,23 @@ class GoogleDriveBackupService {
     return ok ? 'Backup subido correctamente' : null;
   }
 
+  Future<bool> hasExistingBackups() async {
+    final client = await AuthService.instance.getAuthenticatedClient();
+    if (client == null) return false;
+    final api = drive.DriveApi(client);
+    final latest = await _getLatestBackup(api);
+    return latest != null;
+  }
+
+  Future<String?> getLatestBackupDate() async {
+    final client = await AuthService.instance.getAuthenticatedClient();
+    if (client == null) return null;
+    final api = drive.DriveApi(client);
+    final latest = await _getLatestBackup(api);
+    if (latest == null) return null;
+    return latest.name;
+  }
+
   Future<String?> restoreLatestBackup() async {
     final client = await AuthService.instance.getAuthenticatedClient();
     if (client == null) {
@@ -139,9 +156,16 @@ class GoogleDriveBackupService {
       }
 
       final tempDir = await getTemporaryDirectory();
-      final restorePath = p.join(tempDir.path, latest.name ?? 'restore.db');
+      final restorePath = p.join(tempDir.path, latest.name ?? 'restore.zip');
       await io.File(restorePath).writeAsBytes(bytes, flush: true);
-      await DatabaseHelper.importBackup(restorePath);
+
+      final isZip = await DatabaseHelper.isZipBackup(restorePath);
+      if (isZip) {
+        await DatabaseHelper.importFullBackup(restorePath);
+      } else {
+        await DatabaseHelper.importBackup(restorePath);
+      }
+
       await preferencesService.setLastDriveBackupAt(DateTime.now());
       return 'Backup restaurado desde Drive';
     } catch (error) {
@@ -166,10 +190,10 @@ class GoogleDriveBackupService {
       final api = drive.DriveApi(client);
       final tempDir = await getTemporaryDirectory();
       final now = DateTime.now();
-      final filename = '$_backupPrefix${_timestamp(now)}.db';
+      final filename = '$_backupPrefix${_timestamp(now)}.zip';
       final localPath = p.join(tempDir.path, filename);
 
-      await DatabaseHelper.exportBackup(localPath);
+      await DatabaseHelper.exportFullBackup(localPath);
 
       final file = io.File(localPath);
       final media = drive.Media(file.openRead(), await file.length());
@@ -177,7 +201,7 @@ class GoogleDriveBackupService {
         ..name = filename
         ..appProperties = {
           'app': AppConstants.appName,
-          'type': 'database_backup',
+          'type': 'full_backup',
         };
 
       final created = await api.files.create(

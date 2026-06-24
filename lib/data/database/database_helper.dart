@@ -1,7 +1,10 @@
 import 'dart:io' as io;
+import 'dart:typed_data';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:archive/archive.dart';
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/sale.dart';
@@ -872,7 +875,128 @@ class DatabaseHelper {
     _database = await _initDatabase();
   }
 
-  /// Copies a file from [source] to [destination] using the `dart:io` API.
+  /// Returns the path to the product_images directory.
+  static Future<String> getImagesDirectory() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return join(appDir.path, 'product_images');
+  }
+
+  /// Detects if a backup file is a ZIP (new format) or a raw .db (legacy).
+  static Future<bool> isZipBackup(String path) async {
+    final file = io.File(path);
+    if (!await file.exists()) return false;
+    final bytes = await file.openRead(0, 4).first;
+    if (bytes.length < 4) return false;
+    return bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04;
+  }
+
+  /// Creates a full backup (ZIP with DB + product images) at [destinationPath].
+  static Future<void> exportFullBackup(String destinationPath) async {
+    final db = await database;
+    await db.rawQuery('PRAGMA wal_checkpoint(FULL)');
+    await closeDatabase();
+
+    final archive = Archive();
+
+    // Add database file
+    final dbPath = await getDatabasePath();
+    final dbBytes = await io.File(dbPath).readAsBytes();
+    archive.files.add(ArchiveFile('tienda_gamez.db', dbBytes.length, dbBytes));
+
+    // Add product images
+    try {
+      final imagesDir = io.Directory(await getImagesDirectory());
+      if (await imagesDir.exists()) {
+        await for (final entity in imagesDir.list()) {
+          if (entity is io.File) {
+            final fileName = basename(entity.path);
+            final imgBytes = await entity.readAsBytes();
+            archive.files.add(ArchiveFile('product_images/$fileName', imgBytes.length, imgBytes));
+          }
+        }
+      }
+    } catch (_) {}
+
+    final zipData = Uint8List.fromList(ZipEncoder().encode(archive)!);
+    await io.File(destinationPath).writeAsBytes(zipData, flush: true);
+
+    _database = await _initDatabase();
+  }
+
+  /// Restores a full backup (ZIP with DB + product images) from [backupPath].
+  static Future<void> importFullBackup(String backupPath) async {
+    await closeDatabase();
+
+    final bytes = await io.File(backupPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    // Extract database
+    final dbEntry = archive.findFile('tienda_gamez.db');
+    if (dbEntry != null) {
+      final targetPath = await getDatabasePath();
+      await io.File(targetPath).writeAsBytes(dbEntry.content as List<int>, flush: true);
+    }
+
+    // Extract product images
+    final imagesDir = io.Directory(await getImagesDirectory());
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    for (final file in archive) {
+      if (file.name.startsWith('product_images/') && file.isFile) {
+        final fileName = basename(file.name);
+        final destPath = join(imagesDir.path, fileName);
+        await io.File(destPath).writeAsBytes(file.content as List<int>, flush: true);
+      }
+    }
+
+    // Re-open DB
+    _database = await _initDatabase();
+
+    // Normalize image paths in database
+    await _normalizeImagePaths(imagesDir.path);
+  }
+
+  /// Updates imagePath references in the products table to point to the
+  /// current local images directory.
+  static Future<void> _normalizeImagePaths(String newImagesDir) async {
+    final db = await database;
+    final products = await db.query('products', columns: ['id', 'imagePath']);
+
+    for (final row in products) {
+      final oldPath = row['imagePath'] as String?;
+      if (oldPath == null || oldPath.isEmpty) continue;
+
+      final fileName = basename(oldPath);
+      final newPath = join(newImagesDir, fileName);
+
+      if (oldPath != newPath) {
+        await db.update(
+          'products',
+          {'imagePath': newPath},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+    }
+  }
+
+  /// Returns the number of product images on disk.
+  static Future<int> getProductImageCount() async {
+    try {
+      final imagesDir = io.Directory(await getImagesDirectory());
+      if (!await imagesDir.exists()) return 0;
+      int count = 0;
+      await for (final entity in imagesDir.list()) {
+        if (entity is io.File) count++;
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // ==================== PRODUCT CATEGORIES ====================
 
   static Future<List<ProductCategory>> getAllCategories() async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../screens/auth/login_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/pos/pos_screen.dart';
@@ -25,6 +26,7 @@ import '../screens/categories/categories_screen.dart';
 import '../screens/categories/category_form_screen.dart';
 import '../screens/purchase_orders/purchase_orders_screen.dart';
 import '../screens/purchase_orders/purchase_order_form_screen.dart';
+import '../../services/app_state.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -59,7 +61,19 @@ CustomTransitionPage<void> _buildPageWithTransition(
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
+  redirect: (context, state) {
+    final loggedIn = preferencesService.userLoggedIn;
+    final onLoginRoute = state.matchedLocation == '/login';
+
+    if (!loggedIn && !onLoginRoute) return '/login';
+    if (loggedIn && onLoginRoute) return '/home';
+    return null;
+  },
   routes: [
+    GoRoute(
+      path: '/login',
+      pageBuilder: (context, state) => _buildPageWithTransition(context, state, const LoginScreen()),
+    ),
     ShellRoute(
       builder: (context, state, child) => HomeScreen(child: child),
       routes: [

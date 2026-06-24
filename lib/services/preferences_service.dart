@@ -11,6 +11,9 @@ class PreferencesService extends ChangeNotifier {
   static const _keyGoogleDriveDisplayName = 'google_drive_display_name';
   static const _keyAutoDriveBackupEnabled = 'auto_drive_backup_enabled';
   static const _keyLastDriveBackupAt = 'last_drive_backup_at';
+  static const _keyUserLoggedIn = 'user_logged_in';
+  static const _keyUserEmail = 'user_email';
+  static const _keyUserDisplayName = 'user_display_name';
 
   bool _isDarkMode = false;
   bool _googleDriveSignedIn = false;
@@ -18,6 +21,9 @@ class PreferencesService extends ChangeNotifier {
   String? _googleDriveDisplayName;
   bool _autoDriveBackupEnabled = true;
   DateTime? _lastDriveBackupAt;
+  bool _userLoggedIn = false;
+  String? _userEmail;
+  String? _userDisplayName;
 
   bool get isDarkMode => _isDarkMode;
   bool get googleDriveSignedIn => _googleDriveSignedIn;
@@ -25,6 +31,9 @@ class PreferencesService extends ChangeNotifier {
   String? get googleDriveDisplayName => _googleDriveDisplayName;
   bool get autoDriveBackupEnabled => _autoDriveBackupEnabled;
   DateTime? get lastDriveBackupAt => _lastDriveBackupAt;
+  bool get userLoggedIn => _userLoggedIn;
+  String? get userEmail => _userEmail;
+  String? get userDisplayName => _userDisplayName;
 
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
@@ -40,6 +49,9 @@ class PreferencesService extends ChangeNotifier {
     _autoDriveBackupEnabled = prefs.getBool(_keyAutoDriveBackupEnabled) ?? true;
     final lastBackupAtIso = prefs.getString(_keyLastDriveBackupAt);
     _lastDriveBackupAt = lastBackupAtIso != null ? DateTime.tryParse(lastBackupAtIso) : null;
+    _userLoggedIn = prefs.getBool(_keyUserLoggedIn) ?? false;
+    _userEmail = prefs.getString(_keyUserEmail);
+    _userDisplayName = prefs.getString(_keyUserDisplayName);
     notifyListeners();
   }
 
@@ -106,6 +118,40 @@ class PreferencesService extends ChangeNotifier {
     _lastDriveBackupAt = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastDriveBackupAt, value.toIso8601String());
+    notifyListeners();
+  }
+
+  Future<void> setUserSession({
+    required bool loggedIn,
+    String? email,
+    String? displayName,
+  }) async {
+    _userLoggedIn = loggedIn;
+    _userEmail = email;
+    _userDisplayName = displayName;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyUserLoggedIn, loggedIn);
+    if (email == null || email.isEmpty) {
+      await prefs.remove(_keyUserEmail);
+    } else {
+      await prefs.setString(_keyUserEmail, email);
+    }
+    if (displayName == null || displayName.isEmpty) {
+      await prefs.remove(_keyUserDisplayName);
+    } else {
+      await prefs.setString(_keyUserDisplayName, displayName);
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearUserSession() async {
+    _userLoggedIn = false;
+    _userEmail = null;
+    _userDisplayName = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyUserLoggedIn, false);
+    await prefs.remove(_keyUserEmail);
+    await prefs.remove(_keyUserDisplayName);
     notifyListeners();
   }
 }
