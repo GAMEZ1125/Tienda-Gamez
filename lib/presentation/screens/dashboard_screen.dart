@@ -45,7 +45,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _isLoading = false;
     });
 
-    // Show notification dialog once per session (after frame is painted)
     if (!_notificationsShown && mounted) {
       _notificationsShown = true;
       final hasOverdue = overdue.isNotEmpty;
@@ -62,15 +61,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(
-              overdue.isNotEmpty ? Icons.notifications_active : Icons.notifications,
-              color: overdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (overdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                overdue.isNotEmpty ? Icons.notifications_active : Icons.notifications,
+                color: overdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor,
+                size: 22,
+              ),
             ),
-            const SizedBox(width: 8),
-            const Text('Alertas de Créditos'),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Alertas de Créditos',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -79,19 +90,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             if (overdue.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.errorColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning, color: AppTheme.errorColor, size: 20),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.warning_amber, color: AppTheme.errorColor, size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         '${overdue.length} crédito(s) vencido(s)',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.errorColor),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.errorColor, fontSize: 14),
                       ),
                     ),
                   ],
@@ -99,7 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 8),
               ...overdue.take(3).map((d) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
                     Expanded(child: Text(d.customerName, style: const TextStyle(fontSize: 13))),
@@ -114,19 +125,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
             if (dueSoon.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.warningColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.warningColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.schedule, color: AppTheme.warningColor, size: 20),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${dueSoon.length} crédito(s) por vencer (3 días)',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.warningColor),
+                        '${dueSoon.length} crédito(s) por vencer',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.warningColor, fontSize: 14),
                       ),
                     ),
                   ],
@@ -143,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (context.mounted) context.push('/debts');
               });
             },
-            child: const Text('Ir a Créditos'),
+            child: const Text('Ver Créditos'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
@@ -156,12 +167,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inicio'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart),
+            icon: const Icon(Icons.bar_chart_rounded),
             tooltip: 'Estadísticas',
             onPressed: () => context.push('/stats'),
           ),
@@ -170,19 +183,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             tooltip: 'Configuración',
             onPressed: () => context.push('/configuracion'),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
+              color: AppTheme.brandRed,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -192,29 +202,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (_overdueDebts.isNotEmpty || _dueSoonDebts.isNotEmpty)
                       const SizedBox(height: 12),
 
-                    // Credit summary card
-                    _buildCreditSummary(),
+                    // Quick stats
+                    _buildQuickStats(isDark),
                     const SizedBox(height: 16),
 
-                    // Quick stats grid
-                    _buildQuickStats(),
+                    // Credit summary
+                    _buildCreditSummary(isDark),
                     const SizedBox(height: 16),
 
-                    // Calendar section
-                    _buildCalendarSection(),
+                    // Calendar
+                    _buildCalendarSection(isDark),
                     const SizedBox(height: 16),
 
                     // Overdue debts
                     if (_overdueDebts.isNotEmpty) ...[
-                      _buildSectionTitle('Créditos Vencidos', Icons.warning_amber, AppTheme.errorColor),
+                      _buildSectionTitle('Créditos Vencidos', Icons.warning_amber_rounded, AppTheme.errorColor),
                       const SizedBox(height: 8),
-                      ..._overdueDebts.take(3).map((d) => _debtTile(d, true)),
+                      ..._overdueDebts.take(3).map((d) => _debtTile(d, true, isDark)),
                       if (_overdueDebts.length > 3)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.only(top: 8),
                           child: TextButton(
                             onPressed: () => context.push('/debts'),
-                            child: Text('Ver ${_overdueDebts.length - 3} más vencidos...'),
+                            child: const Text('Ver más vencidos...'),
                           ),
                         ),
                       const SizedBox(height: 16),
@@ -222,35 +232,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     // Due soon
                     if (_dueSoonDebts.isNotEmpty) ...[
-                      _buildSectionTitle('Próximos a Vencer', Icons.schedule, AppTheme.warningColor),
+                      _buildSectionTitle('Próximos a Vencer', Icons.schedule_rounded, AppTheme.warningColor),
                       const SizedBox(height: 8),
-                      ..._dueSoonDebts.take(3).map((d) => _debtTile(d, false)),
+                      ..._dueSoonDebts.take(3).map((d) => _debtTile(d, false, isDark)),
                       if (_dueSoonDebts.length > 3)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.only(top: 8),
                           child: TextButton(
                             onPressed: () => context.push('/debts'),
-                            child: Text('Ver ${_dueSoonDebts.length - 3} más...'),
+                            child: const Text('Ver más por vencer...'),
                           ),
                         ),
                     ],
 
                     if (_overdueDebts.isEmpty && _dueSoonDebts.isEmpty)
-                      Card(
-                        margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.check_circle_outline, size: 48, color: AppTheme.successColor.withValues(alpha: 0.5)),
-                                const SizedBox(height: 8),
-                                const Text('No hay créditos pendientes', style: TextStyle(color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      _buildAllClearCard(isDark),
                   ],
                 ),
               ),
@@ -261,86 +257,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildNotificationBanner() {
     final totalAlerts = _overdueDebts.length + _dueSoonDebts.length;
     final hasOverdue = _overdueDebts.isNotEmpty;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+    final bannerColor = hasOverdue ? AppTheme.errorColor : AppTheme.warningColor;
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            bannerColor,
+            bannerColor.withValues(alpha: 0.85),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => context.push('/debts'),
-          child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: hasOverdue
-                  ? [AppTheme.errorColor, AppTheme.errorColor.withValues(alpha: 0.8)]
-                  : [AppTheme.warningColor, AppTheme.warningColor.withValues(alpha: 0.8)],
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    hasOverdue ? Icons.notifications_active_rounded : Icons.notifications_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$totalAlerts alerta(s) de crédito',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hasOverdue
+                            ? '${_overdueDebts.length} vencido(s) · ${_dueSoonDebts.length} por vencer'
+                            : '${_dueSoonDebts.length} crédito(s) por vencer',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: (hasOverdue ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  hasOverdue ? Icons.notifications_active : Icons.notifications,
-                  color: Colors.white, size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$totalAlerts alerta(s) de crédito',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    Text(
-                      hasOverdue
-                          ? '${_overdueDebts.length} vencido(s) · ${_dueSoonDebts.length} por vencer'
-                          : '${_dueSoonDebts.length} crédito(s) por vencer',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
-            ],
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
-  Widget _buildCreditSummary() {
+  Widget _buildQuickStats(bool isDark) {
+    final todaySales = (_stats!['todaySales'] as num).toDouble();
+    final lowStockCount = (_stats!['lowStockCount'] as num).toInt();
+    
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            title: 'Ventas Hoy',
+            value: Formatters.formatCurrency(todaySales),
+            icon: Icons.trending_up_rounded,
+            color: AppTheme.accentEmerald,
+            isDark: isDark,
+            onTap: () => context.push('/pos'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            title: 'Stock Bajo',
+            value: '$lowStockCount',
+            icon: Icons.inventory_2_rounded,
+            color: AppTheme.accentAmber,
+            isDark: isDark,
+            onTap: () => context.push('/inventory'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            title: 'Pedidos',
+            value: 'Ver',
+            icon: Icons.receipt_long_rounded,
+            color: AppTheme.accentBlue,
+            isDark: isDark,
+            onTap: () => context.push('/purchase-orders'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCreditSummary(bool isDark) {
     final pendingAmount = (_stats!['pendingDebts'] as num).toDouble();
     final pendingCount = (_stats!['pendingDebtsCount'] as num).toInt();
     final totalOverdue = _overdueDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount));
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.brandRed, Color(0xFFC41230)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.brandRed.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,17 +398,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.credit_card, color: Colors.white, size: 24),
+                  child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 24),
                 ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Resumen de Créditos',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'Resumen de Créditos',
+                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -369,43 +421,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Pendiente Total', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                      Text(
+                        'Pendiente Total',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         Formatters.formatCurrency(pendingAmount),
-                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: pendingCount > 0 ? Colors.white.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '$pendingCount créditos',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
             if (totalOverdue > 0) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${_overdueDebts.length} vencido(s) — ${Formatters.formatCurrency(totalOverdue)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_overdueDebts.length} vencido(s) — ${Formatters.formatCurrency(totalOverdue)}',
+                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ],
                 ),
@@ -417,85 +474,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickStats() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 1.1,
-      children: [
-        _statTile('Ventas Hoy', Formatters.formatCurrency((_stats!['todaySales'] as num).toDouble()),
-            Icons.today, AppTheme.primaryColor, () => context.push('/pos')),
-        _statTile('Stock Bajo', '${_stats!['lowStockCount']}',
-            Icons.inventory, AppTheme.warningColor, () => context.push('/inventory')),
-        _statTile('Pedidos', 'Proveedores',
-            Icons.inbox_outlined, AppTheme.successColor, () => context.push('/purchase-orders')),
-      ],
-    );
-  }
-
-  Widget _statTile(String label, String value, IconData icon, Color color, VoidCallback onTap) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 22, color: color),
-              const SizedBox(height: 6),
-              Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600]), textAlign: TextAlign.center),
-            ],
-          ),
+  Widget _buildCalendarSection(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppTheme.darkCardBorder : AppTheme.lightCardBorder,
         ),
       ),
-    );
-  }
-
-  /// Groups debts by their due date (date-only key) for the calendar.
-  Map<DateTime, List<Debt>> _buildEventsMap(List<Debt> debts) {
-    final map = <DateTime, List<Debt>>{};
-    for (final d in debts) {
-      final dateKey = DateTime(d.dueDate.year, d.dueDate.month, d.dueDate.day);
-      map.putIfAbsent(dateKey, () => []).add(d);
-    }
-    return map;
-  }
-
-  Widget _buildCalendarSection() {
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Calendar header
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppTheme.brandRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.calendar_month, size: 18, color: AppTheme.primaryColor),
+                  child: const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.brandRed),
                 ),
-                const SizedBox(width: 8),
-                const Text('Calendario de Vencimientos',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 10),
+                const Text(
+                  'Calendario',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),
-
-          // Calendar widget
           TableCalendar<Debt>(
             firstDay: DateTime.now().subtract(const Duration(days: 90)),
             lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -507,19 +517,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             headerStyle: const HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
-              titleTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              leftChevronIcon: Icon(Icons.chevron_left, size: 20),
-              rightChevronIcon: Icon(Icons.chevron_right, size: 20),
+              titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 22),
+              rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 22),
+              headerPadding: EdgeInsets.symmetric(vertical: 8),
             ),
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                color: AppTheme.brandRed.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              selectedDecoration: BoxDecoration(
-                color: AppTheme.primaryColor,
+              todayTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.brandRed),
+              selectedDecoration: const BoxDecoration(
+                color: AppTheme.brandRed,
                 shape: BoxShape.circle,
               ),
+              selectedTextStyle: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
               outsideDaysVisible: false,
               cellMargin: const EdgeInsets.all(3),
               cellPadding: EdgeInsets.zero,
@@ -536,85 +549,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
                 if (events.isEmpty) return null;
-
-                // Check if any event is overdue (past due + unpaid)
                 final debts = events.whereType<Debt>();
                 final hasOverdue = debts.any((d) => d.status != 'paid' && d.dueDate.isBefore(DateTime.now()));
                 final hasPending = debts.any((d) => d.status != 'paid' && !d.dueDate.isBefore(DateTime.now()));
 
                 return Positioned(
-                  bottom: 1,
+                  bottom: 2,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (hasOverdue)
-                        _dot(AppTheme.errorColor),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                          decoration: const BoxDecoration(color: AppTheme.errorColor, shape: BoxShape.circle),
+                        ),
                       if (hasPending)
-                        _dot(AppTheme.warningColor),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                          decoration: const BoxDecoration(color: AppTheme.warningColor, shape: BoxShape.circle),
+                        ),
                     ],
                   ),
                 );
               },
             ),
           ),
-
-          // Legend
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _legendDot(AppTheme.errorColor, 'Vencido'),
+                _LegendDot(color: AppTheme.errorColor, label: 'Vencido'),
                 const SizedBox(width: 16),
-                _legendDot(AppTheme.warningColor, 'Pendiente'),
+                _LegendDot(color: AppTheme.warningColor, label: 'Pendiente'),
               ],
             ),
           ),
-
-          // Debts for selected day
-          _buildDayDebts(),
+          _buildDayDebts(isDark),
         ],
       ),
     );
   }
 
-  Widget _dot(Color color) {
-    return Container(
-      width: 6,
-      height: 6,
-      margin: const EdgeInsets.symmetric(horizontal: 1),
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  Widget _legendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-      ],
-    );
-  }
-
-  Widget _buildDayDebts() {
+  Widget _buildDayDebts(bool isDark) {
     final dateKey = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day);
     final dayDebts = _calendarEvents[dateKey];
 
     if (dayDebts == null || dayDebts.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: Text(
           'Sin créditos para ${Formatters.formatDate(_selectedDay)}',
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary),
         ),
       );
     }
@@ -625,23 +615,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
           child: Row(
             children: [
-              Text('${dayDebts.length} crédito(s)',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+              Text(
+                '${dayDebts.length} crédito(s)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary),
+              ),
               const Spacer(),
-              Text('Pendiente: ${Formatters.formatCurrency(totalPending)}',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorColor)),
+              Text(
+                'Pendiente: ${Formatters.formatCurrency(totalPending)}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorColor),
+              ),
             ],
           ),
         ),
         const Divider(height: 1),
-        ...dayDebts.take(4).map((d) => _debtTile(d,
-            d.status != 'paid' && d.dueDate.isBefore(DateTime.now()))),
+        ...dayDebts.take(4).map((d) => _debtTile(d, d.status != 'paid' && d.dueDate.isBefore(DateTime.now()), isDark)),
         if (dayDebts.length > 4)
           Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            padding: const EdgeInsets.only(left: 16, bottom: 10),
             child: TextButton(
               onPressed: () => context.push('/debts'),
               child: Text('Ver ${dayDebts.length - 4} más...'),
@@ -654,40 +647,251 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSectionTitle(String title, IconData icon, Color color) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 6),
-        Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: color),
+        ),
       ],
     );
   }
 
-  Widget _debtTile(Debt debt, bool isOverdue) {
+  Widget _debtTile(Debt debt, bool isOverdue, bool isDark) {
     final remaining = debt.amount - debt.paidAmount;
+    final statusColor = isOverdue ? AppTheme.errorColor : AppTheme.warningColor;
+    
     return Card(
-      margin: const EdgeInsets.only(bottom: 4),
-      child: ListTile(
-        dense: true,
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: (isOverdue ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.1),
-          child: Icon(
-            isOverdue ? Icons.error_outline : Icons.schedule,
-            size: 16,
-            color: isOverdue ? AppTheme.errorColor : AppTheme.warningColor,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: () => context.push('/debts/${debt.id}'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isOverdue ? Icons.error_outline_rounded : Icons.schedule_rounded,
+                  size: 20,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      debt.customerName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Vence: ${Formatters.formatDate(debt.dueDate)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    Formatters.formatCurrency(remaining),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isOverdue ? 'VENCIDA' : 'Pendiente',
+                      style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        title: Text(debt.customerName, style: const TextStyle(fontSize: 13)),
-        subtitle: Text('Vence: ${Formatters.formatDate(debt.dueDate)}', style: const TextStyle(fontSize: 11)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(Formatters.formatCurrency(remaining), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text('Pagado: ${Formatters.formatCurrency(debt.paidAmount)}', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-          ],
-        ),
-        onTap: () => context.push('/debts/${debt.id}'),
       ),
+    );
+  }
+
+  Widget _buildAllClearCard(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppTheme.darkCardBorder : AppTheme.lightCardBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.successColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_circle_outline_rounded, size: 40, color: AppTheme.successColor),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Todo al día',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No hay créditos pendientes',
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<DateTime, List<Debt>> _buildEventsMap(List<Debt> debts) {
+    final map = <DateTime, List<Debt>>{};
+    for (final d in debts) {
+      final dateKey = DateTime(d.dueDate.year, d.dueDate.month, d.dueDate.day);
+      map.putIfAbsent(dateKey, () => []).add(d);
+    }
+    return map;
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool isDark;
+  final VoidCallback? onTap;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.isDark,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkCardBorder : AppTheme.lightCardBorder,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+          ),
+        ),
+      ],
     );
   }
 }

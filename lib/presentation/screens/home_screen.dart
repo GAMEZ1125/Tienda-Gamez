@@ -25,27 +25,28 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surface,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+          color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppTheme.darkCardBorder : AppTheme.lightCardBorder,
+              width: 1,
+            ),
           ),
         ),
         child: SafeArea(
           child: Builder(
             builder: (context) {
               final location = GoRouterState.of(context).uri.toString();
-              final isDark = Theme.of(context).brightness == Brightness.dark;
               return NavigationBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
+                surfaceTintColor: Colors.transparent,
                 selectedIndex: _currentIndex(location),
                 onDestinationSelected: (index) {
                   switch (index) {
@@ -66,31 +67,33 @@ class HomeScreen extends StatelessWidget {
                       break;
                   }
                 },
-                indicatorColor: AppTheme.brandRed.withValues(alpha: isDark ? 0.25 : 0.12),
+                indicatorColor: AppTheme.brandRed.withValues(alpha: isDark ? 0.2 : 0.1),
+                height: 65,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: const [
                   NavigationDestination(
                     icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
+                    selectedIcon: Icon(Icons.home_rounded),
                     label: 'Inicio',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.point_of_sale_outlined),
-                    selectedIcon: Icon(Icons.point_of_sale),
+                    selectedIcon: Icon(Icons.point_of_sale_rounded),
                     label: 'POS',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.inventory_2_outlined),
-                    selectedIcon: Icon(Icons.inventory_2),
+                    selectedIcon: Icon(Icons.inventory_2_rounded),
                     label: 'Inventario',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.people_outline),
-                    selectedIcon: Icon(Icons.people),
+                    selectedIcon: Icon(Icons.people_rounded),
                     label: 'Clientes',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.credit_card_outlined),
-                    selectedIcon: Icon(Icons.credit_card),
+                    selectedIcon: Icon(Icons.credit_card_rounded),
                     label: 'Deudas',
                   ),
                 ],
