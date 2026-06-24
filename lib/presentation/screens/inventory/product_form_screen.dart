@@ -29,6 +29,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _stockController = TextEditingController();
   final _minStockController = TextEditingController();
   final _barcodeController = TextEditingController();
+  final _unitsPerPackageController = TextEditingController(text: '1');
 
   List<ProductCategory> _categories = [];
   String? _selectedCategory;
@@ -73,6 +74,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _hasTax = product.hasTax;
       _taxRate = product.taxRate;
       _taxRateCtrl.text = (product.taxRate * 100).toStringAsFixed(0);
+      _unitsPerPackageController.text = product.unitsPerPackage.toString();
     }
     await _loadVariations();
     setState(() => _isLoading = false);
@@ -132,7 +134,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           : _descriptionController.text.trim(),
       price: double.parse(_priceController.text),
       cost: double.parse(_costController.text),
-      stock: int.tryParse(_stockController.text) ?? 0,
+      stock: double.tryParse(_stockController.text) ?? 0.0,
       minStock: int.tryParse(_minStockController.text) ?? 5,
       category: _selectedCategory,
       barcode: _barcodeController.text.trim().isEmpty
@@ -141,6 +143,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       isActive: _isActive,
       taxRate: _hasTax ? _taxRate : 0.0,
       imagePath: _imagePath,
+      unitsPerPackage: int.tryParse(_unitsPerPackageController.text) ?? 1,
     );
 
     try {
@@ -349,6 +352,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           onPressed: () => _openScanner(),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Units per package
+                    TextFormField(
+                      controller: _unitsPerPackageController,
+                      decoration: const InputDecoration(
+                        labelText: 'Unidades por paquete',
+                        prefixIcon: Icon(Icons.inventory),
+                        hintText: '1 = simple, 30 = caja x30',
+                        helperText: 'Cuántas unidades individuales contiene 1 paquete',
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
 

@@ -52,7 +52,7 @@ class DatabaseHelper {
         description TEXT,
         price REAL NOT NULL,
         cost REAL NOT NULL,
-        stock INTEGER DEFAULT 0,
+        stock REAL DEFAULT 0,
         minStock INTEGER DEFAULT 5,
         category TEXT,
         barcode TEXT,
@@ -412,6 +412,34 @@ class DatabaseHelper {
       if (!varCols.any((c) => c['name'] == 'imagePath')) {
         await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
       }
+    }
+    if (oldVersion < 7) {
+      // Recreate products table with REAL stock
+      await db.execute('ALTER TABLE products RENAME TO products_old');
+      await db.execute('''
+        CREATE TABLE products (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          price REAL NOT NULL,
+          cost REAL NOT NULL,
+          stock REAL DEFAULT 0,
+          minStock INTEGER DEFAULT 5,
+          category TEXT,
+          barcode TEXT,
+          imagePath TEXT,
+          isActive INTEGER DEFAULT 1,
+          taxRate REAL DEFAULT 0.18,
+          unitsPerPackage INTEGER DEFAULT 1,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO products (id, name, description, price, cost, stock, minStock, category, barcode, imagePath, isActive, taxRate, unitsPerPackage, createdAt, updatedAt)
+        SELECT id, name, description, price, cost, stock, minStock, category, barcode, imagePath, isActive, taxRate, unitsPerPackage, createdAt, updatedAt FROM products_old
+      ''');
+      await db.execute('DROP TABLE products_old');
     }
   }
 

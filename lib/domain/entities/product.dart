@@ -6,7 +6,7 @@ class Product extends Equatable {
   final String? description;
   final double price;
   final double cost;
-  final int stock;
+  final double stock;
   final int minStock;
   final String? category;
   final String? barcode;
@@ -23,7 +23,7 @@ class Product extends Equatable {
     this.description,
     required this.price,
     required this.cost,
-    this.stock = 0,
+    this.stock = 0.0,
     this.minStock = 5,
     this.category,
     this.barcode,
@@ -39,8 +39,8 @@ class Product extends Equatable {
   bool get hasTax => taxRate > 0;
 
   /// Returns effective stock in base units (considering unitsPerPackage).
-  /// If product is "Caja x30" with stock=10, effectiveStock = 300 units.
-  int get effectiveStock => stock * unitsPerPackage;
+  /// If product is "Caja x30" with stock=10, effectiveStock = 300.0 units.
+  double get effectiveStock => stock * unitsPerPackage;
 
   Product copyWith({
     int? id,
@@ -48,7 +48,7 @@ class Product extends Equatable {
     String? description,
     double? price,
     double? cost,
-    int? stock,
+    double? stock,
     int? minStock,
     String? category,
     String? barcode,
@@ -105,7 +105,7 @@ class Product extends Equatable {
       description: map['description'] as String?,
       price: (map['price'] as num).toDouble(),
       cost: (map['cost'] as num).toDouble(),
-      stock: map['stock'] as int? ?? 0,
+      stock: (map['stock'] as num?)?.toDouble() ?? 0.0,
       minStock: map['minStock'] as int? ?? 5,
       category: map['category'] as String?,
       barcode: map['barcode'] as String?,
@@ -119,7 +119,7 @@ class Product extends Equatable {
   }
 
   bool get isLowStock => stock <= minStock;
-  bool get isOutOfStock => stock <= 0;
+  bool get isOutOfStock => stock <= 0.0;
 
   @override
   List<Object?> get props => [

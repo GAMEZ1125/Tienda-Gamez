@@ -245,14 +245,14 @@ class _POSScreenState extends State<POSScreen> {
     _showVariationSelector(product);
   }
 
-  int _calculateEffectiveStock(Product product, ProductVariation variation) {
+  double _calculateEffectiveStock(Product product, ProductVariation variation) {
     final unitsPerPkg = product.unitsPerPackage;
     final unitsPerPres = variation.unitsPerPresentation;
 
     if (unitsPerPkg > 1) {
-      return (variation.stock * unitsPerPres * unitsPerPkg).toInt();
+      return product.stock * unitsPerPkg;
     }
-    return variation.stock * unitsPerPres;
+    return product.stock * unitsPerPres;
   }
 
   Future<void> _showVariationSelector(Product product) async {
@@ -308,7 +308,7 @@ class _POSScreenState extends State<POSScreen> {
                         ),
                   title: Text(v.name),
                   subtitle: Text(
-                    '\$${v.price.toStringAsFixed(2)} · ${effectiveStock > 0 ? 'Stock: $effectiveStock' : 'Agotado'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
+                    '\$${v.price.toStringAsFixed(2)} · ${effectiveStock > 0 ? 'Stock: ${effectiveStock % 1 == 0 ? effectiveStock.toInt() : effectiveStock.toStringAsFixed(2)}' : 'Agotado'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
                     style: TextStyle(
                       color: isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
                       fontSize: 12,
