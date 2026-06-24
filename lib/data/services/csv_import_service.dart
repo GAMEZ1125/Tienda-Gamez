@@ -41,7 +41,7 @@ class CsvProductRow {
       name: name!,
       price: price!,
       cost: cost!,
-      stock: stock ?? 0,
+      stock: (stock ?? 0).toDouble(),
       minStock: minStock ?? 5,
       category: category,
       barcode: barcode?.isNotEmpty == true ? barcode : null,
