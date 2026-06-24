@@ -245,33 +245,33 @@ class _POSScreenState extends State<POSScreen> {
     _showVariationSelector(product);
   }
 
-  double _calculateEffectiveStock(Product product, ProductVariation variation) {
-    final unitsPerPkg = product.unitsPerPackage;
-    final unitsPerPres = variation.unitsPerPresentation;
-
-    if (unitsPerPkg > 1) {
-      return product.stock * unitsPerPkg;
-    }
-    return product.stock * unitsPerPres;
+  String _formatStock(double stock) {
+    if (stock <= 0) return 'Agotado';
+    if (stock % 1 == 0) return stock.toInt().toString();
+    return stock.toStringAsFixed(2);
   }
 
   Future<void> _showVariationSelector(Product product) async {
     final variations = await DatabaseHelper.getVariationsByProduct(product.id!);
+    final activeVariations = variations.where((v) => v.isActive).toList();
 
-    if (variations.isEmpty) {
+    if (activeVariations.isEmpty) {
       _cartBloc.add(AddProductToCart(product));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${product.name} agregado al carrito'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.name} agregado al carrito'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
       return;
     }
 
     if (!mounted) return;
 
-    final selectedVariation = await showDialog<ProductVariation>(
+    // Show dialog with main product + variations
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(product.name),
@@ -280,11 +280,44 @@ class _POSScreenState extends State<POSScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Selecciona una variación:', style: TextStyle(fontSize: 13)),
+              const Text('Selecciona qué vender:', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 12),
-              ...variations.where((v) => v.isActive).map((v) {
-                final effectiveStock = _calculateEffectiveStock(product, v);
-                final isOutOfStock = effectiveStock <= 0;
+              // Main product option
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: product.isOutOfStock
+                      ? AppTheme.errorColor.withValues(alpha: 0.1)
+                      : AppTheme.successColor.withValues(alpha: 0.1),
+                  child: Icon(
+                    product.isOutOfStock ? Icons.block : Icons.shopping_bag,
+                    size: 18,
+                    color: product.isOutOfStock ? AppTheme.errorColor : AppTheme.successColor,
+                  ),
+                ),
+                title: const Text('Producto principal', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  '\$${product.price.toStringAsFixed(2)} · ${product.unitsPerPackage > 1 ? '${_formatStock(product.stock)} paquetes (${_formatStock(product.effectiveStock)} uds)' : 'Stock: ${_formatStock(product.stock)}'}',
+                  style: TextStyle(
+                    color: product.isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+                enabled: !product.isOutOfStock,
+                onTap: () => Navigator.pop(ctx, {'type': 'main'}),
+              ),
+              const Divider(),
+              const Text('Opciones / Presentaciones:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              ...activeVariations.map((v) {
+                final unitsPerPkg = product.unitsPerPackage;
+                final unitsPerPres = v.unitsPerPresentation;
+                double displayStock;
+                if (unitsPerPkg > 1) {
+                  displayStock = product.stock * unitsPerPkg;
+                } else {
+                  displayStock = product.stock * unitsPerPres;
+                }
+                final isOutOfStock = displayStock <= 0;
                 return ListTile(
                   leading: v.imagePath != null && v.imagePath!.isNotEmpty && File(v.imagePath!).existsSync()
                       ? ClipRRect(
@@ -308,14 +341,14 @@ class _POSScreenState extends State<POSScreen> {
                         ),
                   title: Text(v.name),
                   subtitle: Text(
-                    '\$${v.price.toStringAsFixed(2)} · ${effectiveStock > 0 ? 'Stock: ${effectiveStock % 1 == 0 ? effectiveStock.toInt() : effectiveStock.toStringAsFixed(2)}' : 'Agotado'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
+                    '\$${v.price.toStringAsFixed(2)} · ${isOutOfStock ? 'Agotado' : '${_formatStock(displayStock)} uds disponibles'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
                     style: TextStyle(
                       color: isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
                       fontSize: 12,
                     ),
                   ),
                   enabled: !isOutOfStock,
-                  onTap: () => Navigator.pop(ctx, v),
+                  onTap: () => Navigator.pop(ctx, {'type': 'variation', 'variation': v}),
                 );
               }),
             ],
@@ -330,8 +363,32 @@ class _POSScreenState extends State<POSScreen> {
       ),
     );
 
-    if (selectedVariation != null) {
-      final effectiveStock = _calculateEffectiveStock(product, selectedVariation);
+    if (result == null) return;
+
+    final type = result['type'] as String;
+
+    if (type == 'main') {
+      // Sell the main product
+      _cartBloc.add(AddProductToCart(product));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.name} agregado al carrito'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } else if (type == 'variation') {
+      final v = result['variation'] as ProductVariation;
+      final unitsPerPkg = product.unitsPerPackage;
+      final unitsPerPres = v.unitsPerPresentation;
+      double effectiveStock;
+      if (unitsPerPkg > 1) {
+        effectiveStock = product.stock * unitsPerPkg;
+      } else {
+        effectiveStock = product.stock * unitsPerPres;
+      }
+
       if (effectiveStock <= 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -342,8 +399,8 @@ class _POSScreenState extends State<POSScreen> {
       }
 
       final variationProduct = product.copyWith(
-        price: selectedVariation.price,
-        cost: selectedVariation.cost > 0 ? selectedVariation.cost : product.cost,
+        price: v.price,
+        cost: v.cost > 0 ? v.cost : product.cost,
         stock: effectiveStock,
       );
 
@@ -351,7 +408,7 @@ class _POSScreenState extends State<POSScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${product.name} - ${selectedVariation.name} agregado'),
+            content: Text('${product.name} - ${v.name} agregado'),
             duration: const Duration(seconds: 1),
           ),
         );

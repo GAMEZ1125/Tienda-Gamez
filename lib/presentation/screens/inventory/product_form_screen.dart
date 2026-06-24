@@ -358,13 +358,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     // Units per package
                     TextFormField(
                       controller: _unitsPerPackageController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Unidades por paquete',
-                        prefixIcon: Icon(Icons.inventory),
-                        hintText: '1 = simple, 30 = caja x30',
-                        helperText: 'Cuántas unidades individuales contiene 1 paquete',
+                        prefixIcon: const Icon(Icons.inventory),
+                        hintText: '1 = producto simple, 30 = caja x30',
+                        helperText: _unitsPerPackageController.text == '1'
+                            ? 'Simple: se vende por unidad individual'
+                            : 'Paquete: stock en paquetes, se venden unidades individuales',
                       ),
                       keyboardType: TextInputType.number,
+                      onChanged: (v) => setState(() {}),
                     ),
                     const SizedBox(height: 16),
 
