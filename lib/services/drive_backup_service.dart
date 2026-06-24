@@ -126,10 +126,12 @@ class GoogleDriveBackupService {
         return 'No se encontró ningún backup en Drive';
       }
 
-      final media = await api.files.get(
-        latest.id!,
-        downloadOptions: drive.DownloadOptions.fullMedia,
-      ) as drive.Media;
+      final media =
+          await api.files.get(
+                latest.id!,
+                downloadOptions: drive.DownloadOptions.fullMedia,
+              )
+              as drive.Media;
 
       final bytes = <int>[];
       await for (final chunk in media.stream) {

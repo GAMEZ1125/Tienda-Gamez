@@ -28,6 +28,34 @@ import '../screens/purchase_orders/purchase_order_form_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+CustomTransitionPage<void> _buildPageWithTransition(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.02, 0.0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
@@ -37,15 +65,15 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          pageBuilder: (context, state) => const NoTransitionPage(child: DashboardScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const DashboardScreen()),
         ),
         GoRoute(
           path: '/pos',
-          pageBuilder: (context, state) => const NoTransitionPage(child: POSScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const POSScreen()),
         ),
         GoRoute(
           path: '/inventory',
-          pageBuilder: (context, state) => const NoTransitionPage(child: InventoryScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const InventoryScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -61,7 +89,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/expenses',
-          pageBuilder: (context, state) => const NoTransitionPage(child: ExpensesScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const ExpensesScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -77,7 +105,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/customers',
-          pageBuilder: (context, state) => const NoTransitionPage(child: CustomersScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const CustomersScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -99,7 +127,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/suppliers',
-          pageBuilder: (context, state) => const NoTransitionPage(child: SuppliersScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const SuppliersScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -119,7 +147,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/debts',
-          pageBuilder: (context, state) => const NoTransitionPage(child: DebtsScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const DebtsScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -139,7 +167,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/categories',
-          pageBuilder: (context, state) => const NoTransitionPage(child: CategoriesScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const CategoriesScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -155,7 +183,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/purchase-orders',
-          pageBuilder: (context, state) => const NoTransitionPage(child: PurchaseOrdersScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const PurchaseOrdersScreen()),
           routes: [
             GoRoute(
               path: 'add',
@@ -171,15 +199,15 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/stats',
-          pageBuilder: (context, state) => const NoTransitionPage(child: StatsScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const StatsScreen()),
         ),
         GoRoute(
           path: '/configuracion',
-          pageBuilder: (context, state) => const NoTransitionPage(child: ConfiguracionScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const ConfiguracionScreen()),
         ),
         GoRoute(
           path: '/settings',
-          pageBuilder: (context, state) => const NoTransitionPage(child: SettingsScreen()),
+          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const SettingsScreen()),
         ),
       ],
     ),

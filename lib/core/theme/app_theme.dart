@@ -26,10 +26,49 @@ class AppTheme {
   static const Color warningColor = Color(0xFFFFA726);
   static const Color errorColor = Color(0xFFE53935);
 
+  // Gradient colors
+  static const Color gradientRedStart = Color(0xFFE8173E);
+  static const Color gradientRedEnd = Color(0xFFD4145A);
+  static const Color gradientGreenStart = Color(0xFF0F2318);
+  static const Color gradientGreenEnd = Color(0xFF1A3A28);
+  static const Color gradientBlueStart = Color(0xFF2196F3);
+  static const Color gradientBlueEnd = Color(0xFF1976D2);
+  static const Color gradientPurpleStart = Color(0xFF9C27B0);
+  static const Color gradientPurpleEnd = Color(0xFF7B1FA2);
+  static const Color gradientOrangeStart = Color(0xFFFF9800);
+  static const Color gradientOrangeEnd = Color(0xFFF57C00);
+  static const Color gradientTealStart = Color(0xFF009688);
+  static const Color gradientTealEnd = Color(0xFF00796B);
+
   // Convenience aliases to not break existing code
   static Color get primaryColor => brandRed;
   static Color get secondaryColor => brandGreen;
   static Color get surfaceColor => pearl;
+
+  // Gradient presets
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [gradientRedStart, gradientRedEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient secondaryGradient = LinearGradient(
+    colors: [gradientGreenStart, gradientGreenEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient cardGradient = LinearGradient(
+    colors: [Colors.white, Color(0xFFFAFAFA)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient surfaceGradient = LinearGradient(
+    colors: [pearl, Color(0xFFF0EDE8)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
 
   // ─── Theme Data ──────────────────────────────────────────────────
 
@@ -52,11 +91,11 @@ class AppTheme {
         surfaceContainerHigh: pearl,
         surfaceContainerLow: Colors.white,
       ),
-      scaffoldBackgroundColor: pearl,
+      scaffoldBackgroundColor: const Color(0xFFF5F3F0),
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 2,
         backgroundColor: brandRed,
         foregroundColor: Colors.white,
       ),
@@ -85,12 +124,13 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: 0,
+          elevation: 2,
+          shadowColor: brandRed.withValues(alpha: 0.3),
           backgroundColor: brandRed,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -99,7 +139,7 @@ class AppTheme {
           backgroundColor: brandRed,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -108,7 +148,7 @@ class AppTheme {
           foregroundColor: brandRed,
           side: const BorderSide(color: brandRed),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -194,11 +234,11 @@ class AppTheme {
         surfaceContainerHigh: const Color(0xFF1E1E1E),
         surfaceContainerLow: const Color(0xFF1A1A1A),
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      scaffoldBackgroundColor: const Color(0xFF0E0E0E),
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 2,
         backgroundColor: Color(0xFF1A1A1A),
         foregroundColor: Color(0xFFF5F0EB),
       ),
@@ -229,12 +269,13 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: 0,
+          elevation: 2,
+          shadowColor: brandRed.withValues(alpha: 0.4),
           backgroundColor: brandRed,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -243,7 +284,7 @@ class AppTheme {
           backgroundColor: brandRed,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -252,7 +293,7 @@ class AppTheme {
           foregroundColor: brandRed,
           side: const BorderSide(color: brandRed),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
