@@ -6,7 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/debt.dart';
-import '../../../domain/entities/purchase_order.dart';
+import '../../../domain/entities/supplier_debt.dart';
 
 class DebtsScreen extends StatefulWidget {
   const DebtsScreen({super.key});
@@ -17,7 +17,7 @@ class DebtsScreen extends StatefulWidget {
 
 class _DebtsScreenState extends State<DebtsScreen> {
   List<Debt> _receivableDebts = [];
-  List<PurchaseOrder> _payableOrders = [];
+  List<SupplierDebt> _supplierDebts = [];
   bool _isLoading = true;
 
   @override
@@ -28,14 +28,12 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final results = await Future.wait([
-      DatabaseHelper.getAllDebts(),
-      DatabaseHelper.getPendingPurchaseOrders(),
-    ]);
+    final receivable = await DatabaseHelper.getAllDebts();
+    final supplierDebts = await DatabaseHelper.getAllSupplierDebts();
     if (!mounted) return;
     setState(() {
-      _receivableDebts = results[0] as List<Debt>;
-      _payableOrders = results[1] as List<PurchaseOrder>;
+      _receivableDebts = receivable;
+      _supplierDebts = supplierDebts;
       _isLoading = false;
     });
   }
@@ -73,7 +71,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
       _receivableDebts.fold(0.0, (sum, debt) => sum + debt.paidAmount);
 
   double get _totalPayablePending =>
-      _payableOrders.fold(0.0, (sum, order) => sum + order.total);
+      _supplierDebts.fold(0.0, (sum, debt) => sum + debt.remainingAmount);
 
   int get _overdueCount => _receivableDebts
       .where((debt) => debt.status != 'paid' && debt.dueDate.isBefore(DateTime.now()))
@@ -91,7 +89,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
       ..writeln('')
       ..writeln('Por pagar:')
       ..writeln('- Total pendiente: ${Formatters.formatCurrency(_totalPayablePending)}')
-      ..writeln('- Pedidos pendientes: ${_payableOrders.length}');
+      ..writeln('- Deudas pendientes: ${_supplierDebts.where((d) => d.status != 'paid').length}');
 
     await Share.share(buffer.toString(), subject: 'Resumen de deudas - Tienda Gamez');
   }
@@ -246,19 +244,24 @@ class _DebtsScreenState extends State<DebtsScreen> {
   }
 
   Widget _buildPayableTab(BuildContext context, bool isDark) {
-    if (_payableOrders.isEmpty) {
+    if (_supplierDebts.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: const [
           SizedBox(height: 32),
           EmptyState(
-            icon: Icons.inventory_2_outlined,
-            title: 'No hay pedidos pendientes',
+            icon: Icons.receipt_long_outlined,
+            title: 'No hay deudas a proveedores',
           ),
         ],
       );
     }
+
+    final pendingDebts = _supplierDebts.where((d) => d.status != 'paid').toList();
+    final paidDebts = _supplierDebts.where((d) => d.status == 'paid').toList();
+    final totalPending = pendingDebts.fold(0.0, (sum, d) => sum + d.remainingAmount);
+    final totalPaid = paidDebts.fold(0.0, (sum, d) => sum + d.paidAmount);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -269,7 +272,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
             Expanded(
               child: _SummaryCard(
                 label: 'Pendiente',
-                value: Formatters.formatCurrency(_totalPayablePending),
+                value: Formatters.formatCurrency(totalPending),
                 color: AppTheme.brandRed,
                 isDark: isDark,
               ),
@@ -277,8 +280,17 @@ class _DebtsScreenState extends State<DebtsScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: _SummaryCard(
-                label: 'Órdenes',
-                value: '${_payableOrders.length}',
+                label: 'Pagado',
+                value: Formatters.formatCurrency(totalPaid),
+                color: AppTheme.successColor,
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _SummaryCard(
+                label: 'Deudas',
+                value: '${pendingDebts.length}',
                 color: AppTheme.warningColor,
                 isDark: isDark,
               ),
@@ -287,7 +299,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Pedidos pendientes',
+          'Deudas pendientes',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -295,7 +307,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        ..._payableOrders.map((order) {
+        ...pendingDebts.map((debt) {
+          final isOverdue = debt.dueDate.isBefore(DateTime.now());
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
@@ -309,7 +322,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
-                onTap: () => context.push('/purchase-orders'),
+                onTap: () => context.push('/suppliers/${debt.supplierId}'),
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -319,10 +332,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: AppTheme.brandRed.withValues(alpha: 0.1),
+                          color: (isOverdue ? AppTheme.errorColor : AppTheme.brandRed).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.local_shipping_rounded, color: AppTheme.brandRed, size: 22),
+                        child: Icon(
+                          Icons.local_shipping_rounded,
+                          color: isOverdue ? AppTheme.errorColor : AppTheme.brandRed,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -330,7 +347,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              order.supplierName,
+                              debt.supplierName,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
@@ -338,12 +355,32 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              '${Formatters.formatDate(order.date)} · ${order.items.length} productos',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  'Vence: ${Formatters.formatDate(debt.dueDate)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isOverdue
+                                        ? AppTheme.errorColor
+                                        : (isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary),
+                                  ),
+                                ),
+                                if (isOverdue) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.errorColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'VENCIDA',
+                                      style: TextStyle(fontSize: 9, color: AppTheme.errorColor, fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -352,7 +389,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            Formatters.formatCurrency(order.total),
+                            Formatters.formatCurrency(debt.remainingAmount),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -363,12 +400,16 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppTheme.warningColor.withValues(alpha: 0.1),
+                              color: (isOverdue ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              'Pendiente',
-                              style: TextStyle(fontSize: 11, color: AppTheme.warningColor, fontWeight: FontWeight.w600),
+                            child: Text(
+                              isOverdue ? 'Vencida' : 'Pendiente',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isOverdue ? AppTheme.errorColor : AppTheme.warningColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -380,6 +421,89 @@ class _DebtsScreenState extends State<DebtsScreen> {
             ),
           );
         }),
+        if (paidDebts.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Pagadas',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...paidDebts.map((debt) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkCardBorder : AppTheme.lightCardBorder,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: () => context.push('/suppliers/${debt.supplierId}'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppTheme.successColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                debt.supplierName,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Pagado: ${Formatters.formatCurrency(debt.paidAmount)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.successColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.successColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Pagada',
+                            style: TextStyle(fontSize: 11, color: AppTheme.successColor, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ],
     );
   }

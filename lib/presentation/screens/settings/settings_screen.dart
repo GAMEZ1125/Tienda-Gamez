@@ -19,9 +19,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _businessNameController = TextEditingController(text: AppConstants.appName);
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
+  late final TextEditingController _businessNameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _addressController;
 
   bool _isExporting = false;
   bool _isImporting = false;
@@ -33,6 +33,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _businessNameController = TextEditingController(text: preferencesService.businessName);
+    _phoneController = TextEditingController(text: preferencesService.businessPhone);
+    _addressController = TextEditingController(text: preferencesService.businessAddress);
     WidgetsBinding.instance.addPostFrameCallback((_) => _promptGoogleLoginIfNeeded());
   }
 
@@ -441,25 +444,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandRed,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandRed,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () async {
+                          await preferencesService.setBusinessData(
+                            name: _businessNameController.text.trim(),
+                            phone: _phoneController.text.trim(),
+                            address: _addressController.text.trim(),
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Configuración guardada'),
+                                backgroundColor: AppTheme.successColor,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Guardar Configuración'),
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Configuración guardada'),
-                            backgroundColor: AppTheme.successColor,
-                          ),
-                        );
-                      },
-                      child: const Text('Guardar Configuración'),
                     ),
-                  ),
                 ],
               ),
             ),

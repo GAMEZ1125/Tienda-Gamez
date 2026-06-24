@@ -18,6 +18,9 @@ import '../../domain/entities/product_category.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/entities/purchase_order_item.dart';
 import '../../domain/entities/supplier_payment.dart';
+import '../../domain/entities/product_variation.dart';
+import '../../domain/entities/supplier_debt.dart';
+import '../../domain/entities/supplier_debt_payment.dart';
 import '../../services/realtime_backup_service.dart';
 
 class DatabaseHelper {
@@ -178,6 +181,7 @@ class DatabaseHelper {
         tax REAL NOT NULL,
         total REAL NOT NULL,
         status TEXT DEFAULT 'pending',
+        paymentType TEXT DEFAULT 'cash',
         notes TEXT,
         createdAt TEXT NOT NULL
       )
@@ -206,6 +210,51 @@ class DatabaseHelper {
         method TEXT DEFAULT 'Efectivo',
         notes TEXT,
         createdAt TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE supplier_debts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplierId INTEGER NOT NULL,
+        supplierName TEXT NOT NULL,
+        purchaseOrderId INTEGER,
+        amount REAL NOT NULL,
+        paidAmount REAL DEFAULT 0,
+        dueDate TEXT NOT NULL,
+        paidDate TEXT,
+        status TEXT DEFAULT 'pending',
+        notes TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (supplierId) REFERENCES suppliers(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE supplier_debt_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplierDebtId INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        method TEXT DEFAULT 'Efectivo',
+        notes TEXT,
+        FOREIGN KEY (supplierDebtId) REFERENCES supplier_debts(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE product_variations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        productId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        barcode TEXT,
+        price REAL NOT NULL,
+        cost REAL NOT NULL DEFAULT 0,
+        stock INTEGER DEFAULT 0,
+        isActive INTEGER DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
       )
     ''');
 
@@ -295,6 +344,56 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE products ADD COLUMN taxRate REAL DEFAULT 0.0');
       await db.execute('UPDATE products SET taxRate = 0.18 WHERE hasTax = 1');
       await db.execute('UPDATE products SET taxRate = 0.0 WHERE hasTax = 0');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS product_variations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          productId INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          barcode TEXT,
+          price REAL NOT NULL,
+          cost REAL NOT NULL DEFAULT 0,
+          stock INTEGER DEFAULT 0,
+          isActive INTEGER DEFAULT 1,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS supplier_debts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          supplierId INTEGER NOT NULL,
+          supplierName TEXT NOT NULL,
+          purchaseOrderId INTEGER,
+          amount REAL NOT NULL,
+          paidAmount REAL DEFAULT 0,
+          dueDate TEXT NOT NULL,
+          paidDate TEXT,
+          status TEXT DEFAULT 'pending',
+          notes TEXT,
+          createdAt TEXT NOT NULL,
+          FOREIGN KEY (supplierId) REFERENCES suppliers(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS supplier_debt_payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          supplierDebtId INTEGER NOT NULL,
+          amount REAL NOT NULL,
+          date TEXT NOT NULL,
+          method TEXT DEFAULT 'Efectivo',
+          notes TEXT,
+          FOREIGN KEY (supplierDebtId) REFERENCES supplier_debts(id) ON DELETE CASCADE
+        )
+      ''');
+      // Add paymentType to purchase_orders if not exists
+      final columns = await db.rawQuery('PRAGMA table_info(purchase_orders)');
+      final hasPaymentType = columns.any((c) => c['name'] == 'paymentType');
+      if (!hasPaymentType) {
+        await db.execute("ALTER TABLE purchase_orders ADD COLUMN paymentType TEXT DEFAULT 'cash'");
+      }
     }
   }
 
@@ -1143,12 +1242,25 @@ class DatabaseHelper {
     final db = await database;
     await db.update('purchase_orders', {'status': status}, where: 'id = ?', whereArgs: [id]);
 
-    // If received, add stock for each item
+    // If received, add stock, update average cost, and create supplier debt if credit
     if (status == 'received') {
       final order = await getPurchaseOrderById(id);
       if (order != null) {
         for (final item in order.items) {
           await increaseStock(item.productId, item.quantity);
+          await updateProductAverageCost(item.productId, item.quantity, item.unitCost);
+        }
+
+        // If order is credit, create supplier debt
+        if (order.isCredit) {
+          await insertSupplierDebt(SupplierDebt(
+            supplierId: order.supplierId,
+            supplierName: order.supplierName,
+            purchaseOrderId: order.id,
+            amount: order.total,
+            dueDate: DateTime.now().add(const Duration(days: 30)),
+            notes: 'Pedido #${order.id} a crédito',
+          ));
         }
       }
     }
@@ -1231,6 +1343,230 @@ class DatabaseHelper {
     final result = await db.delete('supplier_payments', where: 'id = ?', whereArgs: [id]);
     RealtimeBackupService.instance.onDatabaseChanged();
     return result;
+  }
+
+  // ==================== SUPPLIER DEBTS ====================
+
+  static Future<List<SupplierDebt>> getAllSupplierDebts() async {
+    final db = await database;
+    final maps = await db.query('supplier_debts', orderBy: 'dueDate ASC');
+    return await _loadSupplierDebtPayments(maps);
+  }
+
+  static Future<List<SupplierDebt>> getSupplierDebtsBySupplier(int supplierId) async {
+    final db = await database;
+    final maps = await db.query(
+      'supplier_debts',
+      where: 'supplierId = ?',
+      whereArgs: [supplierId],
+      orderBy: 'dueDate ASC',
+    );
+    return await _loadSupplierDebtPayments(maps);
+  }
+
+  static Future<SupplierDebt?> getSupplierDebtById(int id) async {
+    final db = await database;
+    final maps = await db.query('supplier_debts', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    final debt = SupplierDebt.fromMap(maps.first);
+    final payments = await db.query(
+      'supplier_debt_payments',
+      where: 'supplierDebtId = ?',
+      whereArgs: [id],
+      orderBy: 'date DESC',
+    );
+    return debt.copyWith(payments: payments.map((p) => SupplierDebtPayment.fromMap(p)).toList());
+  }
+
+  static Future<int> insertSupplierDebt(SupplierDebt debt) async {
+    final db = await database;
+    final result = await db.insert('supplier_debts', debt.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<int> updateSupplierDebt(SupplierDebt debt) async {
+    final db = await database;
+    final result = await db.update(
+      'supplier_debts',
+      debt.toMap(),
+      where: 'id = ?',
+      whereArgs: [debt.id],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<int> insertSupplierDebtPayment(SupplierDebtPayment payment) async {
+    final db = await database;
+    final id = await db.insert('supplier_debt_payments', payment.toMap());
+
+    // Update debt paid amount and status
+    final debtMaps = await db.query('supplier_debts', where: 'id = ?', whereArgs: [payment.supplierDebtId]);
+    if (debtMaps.isNotEmpty) {
+      final debt = SupplierDebt.fromMap(debtMaps.first);
+      final newPaidAmount = debt.paidAmount + payment.amount;
+      String newStatus;
+      if (newPaidAmount >= debt.amount) {
+        newStatus = 'paid';
+      } else {
+        newStatus = 'partial';
+      }
+      await db.update(
+        'supplier_debts',
+        {
+          'paidAmount': newPaidAmount,
+          'status': newStatus,
+          if (newStatus == 'paid') 'paidDate': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [payment.supplierDebtId],
+      );
+    }
+
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return id;
+  }
+
+  static Future<List<SupplierDebtPayment>> getSupplierDebtPaymentsByDebt(int debtId) async {
+    final db = await database;
+    final maps = await db.query(
+      'supplier_debt_payments',
+      where: 'supplierDebtId = ?',
+      whereArgs: [debtId],
+      orderBy: 'date DESC',
+    );
+    return maps.map((map) => SupplierDebtPayment.fromMap(map)).toList();
+  }
+
+  static Future<List<SupplierDebt>> _loadSupplierDebtPayments(List<Map<String, dynamic>> debtMaps) async {
+    final db = await database;
+    final debts = <SupplierDebt>[];
+    for (final map in debtMaps) {
+      final debt = SupplierDebt.fromMap(map);
+      final payments = await db.query(
+        'supplier_debt_payments',
+        where: 'supplierDebtId = ?',
+        whereArgs: [debt.id],
+        orderBy: 'date DESC',
+      );
+      debts.add(debt.copyWith(payments: payments.map((p) => SupplierDebtPayment.fromMap(p)).toList()));
+    }
+    return debts;
+  }
+
+  // ==================== PRODUCT VARIATIONS ====================
+
+  static Future<List<ProductVariation>> getVariationsByProduct(int productId) async {
+    final db = await database;
+    final maps = await db.query(
+      'product_variations',
+      where: 'productId = ?',
+      whereArgs: [productId],
+      orderBy: 'name',
+    );
+    return maps.map((map) => ProductVariation.fromMap(map)).toList();
+  }
+
+  static Future<ProductVariation?> getVariationById(int id) async {
+    final db = await database;
+    final maps = await db.query('product_variations', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return ProductVariation.fromMap(maps.first);
+  }
+
+  static Future<ProductVariation?> getVariationByBarcode(String barcode) async {
+    final db = await database;
+    final maps = await db.query(
+      'product_variations',
+      where: 'barcode = ?',
+      whereArgs: [barcode],
+    );
+    if (maps.isEmpty) return null;
+    return ProductVariation.fromMap(maps.first);
+  }
+
+  static Future<int> insertVariation(ProductVariation variation) async {
+    final db = await database;
+    final result = await db.insert('product_variations', variation.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<int> updateVariation(ProductVariation variation) async {
+    final db = await database;
+    final result = await db.update(
+      'product_variations',
+      variation.toMap(),
+      where: 'id = ?',
+      whereArgs: [variation.id],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<int> deleteVariation(int id) async {
+    final db = await database;
+    final result = await db.delete('product_variations', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<int> updateVariationStock(int id, int newStock) async {
+    final db = await database;
+    final result = await db.update(
+      'product_variations',
+      {'stock': newStock, 'updatedAt': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<void> increaseVariationStock(int id, int quantity) async {
+    final db = await database;
+    await db.rawUpdate(
+      'UPDATE product_variations SET stock = stock + ?, updatedAt = ? WHERE id = ?',
+      [quantity, DateTime.now().toIso8601String(), id],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
+  }
+
+  static Future<void> reduceVariationStock(int id, int quantity) async {
+    final db = await database;
+    await db.rawUpdate(
+      'UPDATE product_variations SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+      [quantity, DateTime.now().toIso8601String(), id],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
+  }
+
+  /// Calculates weighted average cost for a product.
+  static Future<void> updateProductAverageCost(int productId, int newQuantity, double newCost) async {
+    final db = await database;
+    final maps = await db.query('products', where: 'id = ?', whereArgs: [productId]);
+    if (maps.isEmpty) return;
+
+    final currentStock = maps.first['stock'] as int? ?? 0;
+    final currentCost = (maps.first['cost'] as num?)?.toDouble() ?? 0.0;
+
+    double newAverageCost;
+    if (currentStock == 0) {
+      newAverageCost = newCost;
+    } else {
+      final totalValue = (currentStock * currentCost) + (newQuantity * newCost);
+      final totalQuantity = currentStock + newQuantity;
+      newAverageCost = totalValue / totalQuantity;
+    }
+
+    await db.update(
+      'products',
+      {'cost': newAverageCost, 'updatedAt': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [productId],
+    );
+    RealtimeBackupService.instance.onDatabaseChanged();
   }
 
   static Future<void> copyFile(String source, String destination) async {

@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_category.dart';
+import '../../../domain/entities/product_variation.dart';
 import '../scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   String? _imagePath;
   bool _isLoading = false;
   bool _isEditing = false;
+  List<ProductVariation> _variations = [];
 
   @override
   void initState() {
@@ -72,7 +74,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _taxRate = product.taxRate;
       _taxRateCtrl.text = (product.taxRate * 100).toStringAsFixed(0);
     }
+    await _loadVariations();
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadVariations() async {
+    if (widget.productId == null) return;
+    final variations = await DatabaseHelper.getVariationsByProduct(widget.productId!);
+    setState(() => _variations = variations);
   }
 
   @override
@@ -384,11 +393,353 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       value: _isActive,
                       onChanged: (v) => setState(() => _isActive = v),
                     ),
+
+                    // Variations section (only when editing)
+                    if (_isEditing) ...[
+                      const SizedBox(height: 16),
+                      _buildVariationsSection(),
+                    ],
                   ],
                 ),
               ),
             ),
     );
+  }
+
+  Widget _buildVariationsSection() {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.style, size: 20, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Variaciones / Presentaciones',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  '${_variations.length} variación(es)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tallas, colores, tamaños o presentaciones del producto',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 12),
+            if (_variations.isNotEmpty) ...[
+              ..._variations.map((v) => _buildVariationTile(v)),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showAddVariationDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Agregar Variación'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariationTile(ProductVariation variation) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: variation.isActive ? null : Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.style, size: 18, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  variation.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      '\$${variation.price.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Stock: ${variation.stock}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    if (variation.barcode != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        'Cód: ${variation.barcode}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            onPressed: () => _showEditVariationDialog(variation),
+            tooltip: 'Editar',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+            onPressed: () => _deleteVariation(variation),
+            tooltip: 'Eliminar',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddVariationDialog() {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: _priceController.text);
+    final costCtrl = TextEditingController(text: _costController.text);
+    final stockCtrl = TextEditingController(text: '0');
+    final barcodeCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nueva Variación'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre *',
+                  hintText: 'Ej: 350ml, Rojo, Talla M',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: priceCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Precio *',
+                        prefixText: r'$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: costCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Costo',
+                        prefixText: r'$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: stockCtrl,
+                      decoration: const InputDecoration(labelText: 'Stock'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: barcodeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Código barras',
+                        hintText: 'Opcional',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              final variation = ProductVariation(
+                productId: widget.productId!,
+                name: nameCtrl.text.trim(),
+                price: double.tryParse(priceCtrl.text) ?? 0,
+                cost: double.tryParse(costCtrl.text) ?? 0,
+                stock: int.tryParse(stockCtrl.text) ?? 0,
+                barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+              );
+              await DatabaseHelper.insertVariation(variation);
+              await _loadVariations();
+              if (mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditVariationDialog(ProductVariation variation) {
+    final nameCtrl = TextEditingController(text: variation.name);
+    final priceCtrl = TextEditingController(text: variation.price.toString());
+    final costCtrl = TextEditingController(text: variation.cost.toString());
+    final stockCtrl = TextEditingController(text: variation.stock.toString());
+    final barcodeCtrl = TextEditingController(text: variation.barcode ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar Variación'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nombre *'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: priceCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Precio *',
+                        prefixText: r'$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: costCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Costo',
+                        prefixText: r'$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: stockCtrl,
+                      decoration: const InputDecoration(labelText: 'Stock'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: barcodeCtrl,
+                      decoration: const InputDecoration(labelText: 'Código barras'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              final updated = variation.copyWith(
+                name: nameCtrl.text.trim(),
+                price: double.tryParse(priceCtrl.text) ?? variation.price,
+                cost: double.tryParse(costCtrl.text) ?? variation.cost,
+                stock: int.tryParse(stockCtrl.text) ?? variation.stock,
+                barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+                updatedAt: DateTime.now(),
+              );
+              await DatabaseHelper.updateVariation(updated);
+              await _loadVariations();
+              if (mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteVariation(ProductVariation variation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar Variación'),
+        content: Text('¿Eliminar "${variation.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await DatabaseHelper.deleteVariation(variation.id!);
+      await _loadVariations();
+    }
   }
 
   Widget _buildImagePicker() {

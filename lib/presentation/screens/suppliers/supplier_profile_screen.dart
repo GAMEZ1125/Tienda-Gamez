@@ -5,6 +5,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/purchase_order.dart';
 import '../../../domain/entities/supplier.dart';
+import '../../../domain/entities/supplier_debt.dart';
 
 class SupplierProfileScreen extends StatefulWidget {
   final int supplierId;
@@ -18,6 +19,7 @@ class SupplierProfileScreen extends StatefulWidget {
 class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
   Supplier? _supplier;
   List<PurchaseOrder> _orders = [];
+  List<SupplierDebt> _supplierDebts = [];
   bool _isLoading = true;
 
   @override
@@ -30,9 +32,11 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
     setState(() => _isLoading = true);
     final supplier = await DatabaseHelper.getSupplierById(widget.supplierId);
     final orders = await DatabaseHelper.getPurchaseOrdersBySupplier(widget.supplierId);
+    final supplierDebts = await DatabaseHelper.getSupplierDebtsBySupplier(widget.supplierId);
     setState(() {
       _supplier = supplier;
       _orders = orders;
+      _supplierDebts = supplierDebts;
       _isLoading = false;
     });
   }
@@ -125,6 +129,8 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
               child: Row(
                 children: [
                   Expanded(child: _statCard('Total Comprado', Formatters.formatCurrency(supplier.totalPurchases), AppTheme.primaryColor)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _statCard('Saldo Pendiente', Formatters.formatCurrency(_supplierDebts.fold(0.0, (sum, d) => sum + d.remainingAmount)), AppTheme.errorColor)),
                 ],
               ),
             ),

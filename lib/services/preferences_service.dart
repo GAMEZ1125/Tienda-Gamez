@@ -14,6 +14,9 @@ class PreferencesService extends ChangeNotifier {
   static const _keyUserLoggedIn = 'user_logged_in';
   static const _keyUserEmail = 'user_email';
   static const _keyUserDisplayName = 'user_display_name';
+  static const _keyBusinessName = 'business_name';
+  static const _keyBusinessPhone = 'business_phone';
+  static const _keyBusinessAddress = 'business_address';
 
   bool _isDarkMode = false;
   bool _googleDriveSignedIn = false;
@@ -24,6 +27,9 @@ class PreferencesService extends ChangeNotifier {
   bool _userLoggedIn = false;
   String? _userEmail;
   String? _userDisplayName;
+  String _businessName = 'Tienda Gamez';
+  String _businessPhone = '';
+  String _businessAddress = '';
 
   bool get isDarkMode => _isDarkMode;
   bool get googleDriveSignedIn => _googleDriveSignedIn;
@@ -34,6 +40,9 @@ class PreferencesService extends ChangeNotifier {
   bool get userLoggedIn => _userLoggedIn;
   String? get userEmail => _userEmail;
   String? get userDisplayName => _userDisplayName;
+  String get businessName => _businessName;
+  String get businessPhone => _businessPhone;
+  String get businessAddress => _businessAddress;
 
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
@@ -52,6 +61,9 @@ class PreferencesService extends ChangeNotifier {
     _userLoggedIn = prefs.getBool(_keyUserLoggedIn) ?? false;
     _userEmail = prefs.getString(_keyUserEmail);
     _userDisplayName = prefs.getString(_keyUserDisplayName);
+    _businessName = prefs.getString(_keyBusinessName) ?? 'Tienda Gamez';
+    _businessPhone = prefs.getString(_keyBusinessPhone) ?? '';
+    _businessAddress = prefs.getString(_keyBusinessAddress) ?? '';
     notifyListeners();
   }
 
@@ -152,6 +164,21 @@ class PreferencesService extends ChangeNotifier {
     await prefs.setBool(_keyUserLoggedIn, false);
     await prefs.remove(_keyUserEmail);
     await prefs.remove(_keyUserDisplayName);
+    notifyListeners();
+  }
+
+  Future<void> setBusinessData({
+    required String name,
+    required String phone,
+    required String address,
+  }) async {
+    _businessName = name;
+    _businessPhone = phone;
+    _businessAddress = address;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyBusinessName, name);
+    await prefs.setString(_keyBusinessPhone, phone);
+    await prefs.setString(_keyBusinessAddress, address);
     notifyListeners();
   }
 }

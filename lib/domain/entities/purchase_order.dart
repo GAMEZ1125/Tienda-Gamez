@@ -10,6 +10,7 @@ class PurchaseOrder extends Equatable {
   final double tax;
   final double total;
   final String status; // pending, received, cancelled
+  final String paymentType; // cash, credit
   final String? notes;
   final List<PurchaseOrderItem> items;
   final DateTime createdAt;
@@ -23,6 +24,7 @@ class PurchaseOrder extends Equatable {
     this.tax = 0,
     this.total = 0,
     this.status = 'pending',
+    this.paymentType = 'cash',
     this.notes,
     this.items = const [],
     DateTime? createdAt,
@@ -31,6 +33,7 @@ class PurchaseOrder extends Equatable {
 
   bool get isPending => status == 'pending';
   bool get isReceived => status == 'received';
+  bool get isCredit => paymentType == 'credit';
 
   PurchaseOrder copyWith({
     int? id,
@@ -41,6 +44,7 @@ class PurchaseOrder extends Equatable {
     double? tax,
     double? total,
     String? status,
+    String? paymentType,
     String? notes,
     List<PurchaseOrderItem>? items,
     DateTime? createdAt,
@@ -54,6 +58,7 @@ class PurchaseOrder extends Equatable {
       tax: tax ?? this.tax,
       total: total ?? this.total,
       status: status ?? this.status,
+      paymentType: paymentType ?? this.paymentType,
       notes: notes ?? this.notes,
       items: items ?? this.items,
       createdAt: createdAt ?? this.createdAt,
@@ -70,6 +75,7 @@ class PurchaseOrder extends Equatable {
       'tax': tax,
       'total': total,
       'status': status,
+      'paymentType': paymentType,
       'notes': notes,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -85,6 +91,7 @@ class PurchaseOrder extends Equatable {
       tax: (map['tax'] as num).toDouble(),
       total: (map['total'] as num).toDouble(),
       status: map['status'] as String? ?? 'pending',
+      paymentType: map['paymentType'] as String? ?? 'cash',
       notes: map['notes'] as String?,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
@@ -102,6 +109,7 @@ class PurchaseOrder extends Equatable {
         tax,
         total,
         status,
+        paymentType,
         notes,
         items,
         createdAt,

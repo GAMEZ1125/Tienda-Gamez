@@ -25,6 +25,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
   bool _isEditing = false;
   bool _hasTax = true;
   double _taxRate = 0.18;
+  String _paymentType = 'cash';
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
         unitCost: i.unitCost,
       )).toList();
       _notesCtrl.text = order.notes ?? '';
+      _paymentType = order.paymentType;
     }
     setState(() => _isLoading = false);
   }
@@ -197,6 +199,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
       subtotal: _subtotal,
       tax: _tax,
       total: _total,
+      paymentType: _paymentType,
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       items: _items.map((i) => PurchaseOrderItem(
         productId: i.productId,
@@ -256,6 +259,48 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
                 subtitle: _supplier?.phone != null ? Text(_supplier!.phone!) : null,
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _selectSupplier,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Payment type
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tipo de Pedido', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Contado'),
+                            subtitle: const Text('Pago inmediato'),
+                            value: 'cash',
+                            groupValue: _paymentType,
+                            onChanged: (v) => setState(() => _paymentType = v!),
+                            activeColor: AppTheme.primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Crédito'),
+                            subtitle: const Text('Pagar después'),
+                            value: 'credit',
+                            groupValue: _paymentType,
+                            onChanged: (v) => setState(() => _paymentType = v!),
+                            activeColor: AppTheme.primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

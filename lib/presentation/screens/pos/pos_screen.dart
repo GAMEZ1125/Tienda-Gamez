@@ -9,6 +9,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/ticket_receipt_dialog.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
+import '../../../domain/entities/product_variation.dart';
 import '../../../domain/entities/sale.dart';
 import '../scanner_screen.dart';
 
@@ -241,13 +242,95 @@ class _POSScreenState extends State<POSScreen> {
       );
       return;
     }
-    _cartBloc.add(AddProductToCart(product));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product.name} agregado al carrito'),
-        duration: const Duration(seconds: 1),
+    _showVariationSelector(product);
+  }
+
+  Future<void> _showVariationSelector(Product product) async {
+    final variations = await DatabaseHelper.getVariationsByProduct(product.id!);
+
+    if (variations.isEmpty) {
+      _cartBloc.add(AddProductToCart(product));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${product.name} agregado al carrito'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final selectedVariation = await showDialog<ProductVariation>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(product.name),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Selecciona una variación:', style: TextStyle(fontSize: 13)),
+              const SizedBox(height: 12),
+              ...variations.where((v) => v.isActive).map((v) => ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: v.isOutOfStock
+                          ? AppTheme.errorColor.withValues(alpha: 0.1)
+                          : AppTheme.primaryColor.withValues(alpha: 0.1),
+                      child: Icon(
+                        v.isOutOfStock ? Icons.block : Icons.check,
+                        size: 16,
+                        color: v.isOutOfStock ? AppTheme.errorColor : AppTheme.primaryColor,
+                      ),
+                    ),
+                    title: Text(v.name),
+                    subtitle: Text(
+                      '\$${v.price.toStringAsFixed(2)} · Stock: ${v.stock}',
+                      style: TextStyle(
+                        color: v.isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    enabled: !v.isOutOfStock,
+                    onTap: () => Navigator.pop(ctx, v),
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+        ],
       ),
     );
+
+    if (selectedVariation != null) {
+      if (selectedVariation.isOutOfStock) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Variación agotada')),
+          );
+        }
+        return;
+      }
+
+      final variationProduct = product.copyWith(
+        price: selectedVariation.price,
+        stock: selectedVariation.stock,
+      );
+
+      _cartBloc.add(AddProductToCart(variationProduct));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.name} - ${selectedVariation.name} agregado'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
   }
 }
 
