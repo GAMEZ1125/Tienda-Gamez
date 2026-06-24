@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../services/app_state.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/drive_backup_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,11 +16,13 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _error;
+  String? _status;
 
   Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
       _error = null;
+      _status = 'Iniciando sesión...';
     });
 
     try {
@@ -45,6 +48,84 @@ class _LoginScreenState extends State<LoginScreen> {
         email: account.email,
         displayName: account.displayName,
       );
+
+      // Check for existing backups on Drive
+      if (mounted) {
+        setState(() => _status = 'Buscando respaldos en Drive...');
+      }
+
+      final hasBackups = await GoogleDriveBackupService.instance.hasExistingBackups();
+
+      if (!hasBackups) {
+        // First time with this account - create initial backup
+        if (mounted) {
+          setState(() => _status = 'Creando respaldo inicial...');
+        }
+        await GoogleDriveBackupService.instance.uploadBackupNow();
+
+        if (mounted) {
+          context.go('/home');
+        }
+        return;
+      }
+
+      // Account has existing backups - offer to restore
+      if (mounted) {
+        final shouldRestore = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.cloud_download_rounded, size: 40, color: AppTheme.brandRed),
+            title: const Text('Respaldo encontrado'),
+            content: const Text(
+              'Esta cuenta ya tiene datos respaldados en Google Drive. '
+              '¿Deseas restaurarlos?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('No, usar vacío'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Sí, restaurar'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldRestore == true) {
+          if (mounted) {
+            setState(() => _status = 'Restaurando datos desde Drive...');
+          }
+
+          try {
+            await GoogleDriveBackupService.instance.restoreLatestBackup();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Datos restaurados correctamente'),
+                  backgroundColor: AppTheme.successColor,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error al restaurar: $e'),
+                  backgroundColor: AppTheme.errorColor,
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      // Schedule auto-backup
+      if (preferencesService.autoDriveBackupEnabled) {
+        await GoogleDriveBackupService.instance.scheduleDailyBackup();
+      }
 
       if (mounted) {
         context.go('/home');
@@ -122,54 +203,75 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
 
+                // Status indicator
+                if (_isLoading && _status != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandRed.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.brandRed.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.brandRed),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _status!,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 // Google Sign-In button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _signInWithGoogle,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1F1F1F),
-                      elevation: 1,
-                      shadowColor: Colors.black.withValues(alpha: 0.1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: const BorderSide(color: Color(0xFFDADCE0)),
+                if (!_isLoading)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _signInWithGoogle,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1F1F1F),
+                        elevation: 1,
+                        shadowColor: Colors.black.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: Color(0xFFDADCE0)),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'G',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4285F4),
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Continuar con Google',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: AppTheme.brandRed,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                'G',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF4285F4),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Continuar con Google',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
                   ),
-                ),
 
                 if (_error != null) ...[
                   const SizedBox(height: 16),
@@ -197,25 +299,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
 
                 // Skip login
-                TextButton(
-                  onPressed: _isLoading ? null : _skipLogin,
-                  child: Text(
-                    'Usar sin cuenta',
+                if (!_isLoading)
+                  TextButton(
+                    onPressed: _skipLogin,
+                    child: Text(
+                      'Usar sin cuenta',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+                      ),
+                    ),
+                  ),
+
+                if (!_isLoading) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Podrás sincronizar datos más tarde',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 8),
-                Text(
-                  'Podrás sincronizar datos más tarde',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
-                  ),
-                ),
+                ],
               ],
             ),
           ),

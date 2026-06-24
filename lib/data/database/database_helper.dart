@@ -18,6 +18,7 @@ import '../../domain/entities/product_category.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/entities/purchase_order_item.dart';
 import '../../domain/entities/supplier_payment.dart';
+import '../../services/realtime_backup_service.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -359,12 +360,16 @@ class DatabaseHelper {
 
   static Future<int> insertProduct(Product product) async {
     final db = await database;
-    return await db.insert('products', product.toMap());
+    final result = await db.insert('products', product.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateProduct(Product product) async {
     final db = await database;
-    return await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
+    final result = await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   /// Inserts multiple products in a single transaction (batch insert).
@@ -379,12 +384,15 @@ class DatabaseHelper {
         count++;
       }
     });
+    RealtimeBackupService.instance.onDatabaseChanged();
     return count;
   }
 
   static Future<int> deleteProduct(int id) async {
     final db = await database;
-    return await db.update('products', {'isActive': 0, 'updatedAt': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    final result = await db.update('products', {'isActive': 0, 'updatedAt': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<void> reduceStock(int id, int quantity) async {
@@ -476,6 +484,7 @@ class DatabaseHelper {
       }
     }
 
+    RealtimeBackupService.instance.onDatabaseChanged();
     return id;
   }
 
@@ -567,17 +576,23 @@ class DatabaseHelper {
 
   static Future<int> insertCustomer(Customer customer) async {
     final db = await database;
-    return await db.insert('customers', customer.toMap());
+    final result = await db.insert('customers', customer.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateCustomer(Customer customer) async {
     final db = await database;
-    return await db.update('customers', customer.toMap(), where: 'id = ?', whereArgs: [customer.id]);
+    final result = await db.update('customers', customer.toMap(), where: 'id = ?', whereArgs: [customer.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteCustomer(int id) async {
     final db = await database;
-    return await db.delete('customers', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('customers', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   // ==================== EXPENSES ====================
@@ -634,17 +649,23 @@ class DatabaseHelper {
 
   static Future<int> insertExpense(Expense expense) async {
     final db = await database;
-    return await db.insert('expenses', expense.toMap());
+    final result = await db.insert('expenses', expense.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateExpense(Expense expense) async {
     final db = await database;
-    return await db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);
+    final result = await db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteExpense(int id) async {
     final db = await database;
-    return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   // ==================== SUPPLIERS ====================
@@ -675,17 +696,23 @@ class DatabaseHelper {
 
   static Future<int> insertSupplier(Supplier supplier) async {
     final db = await database;
-    return await db.insert('suppliers', supplier.toMap());
+    final result = await db.insert('suppliers', supplier.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateSupplier(Supplier supplier) async {
     final db = await database;
-    return await db.update('suppliers', supplier.toMap(), where: 'id = ?', whereArgs: [supplier.id]);
+    final result = await db.update('suppliers', supplier.toMap(), where: 'id = ?', whereArgs: [supplier.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteSupplier(int id) async {
     final db = await database;
-    return await db.delete('suppliers', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('suppliers', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   // ==================== DEBTS ====================
@@ -730,17 +757,23 @@ class DatabaseHelper {
 
   static Future<int> insertDebt(Debt debt) async {
     final db = await database;
-    return await db.insert('debts', debt.toMap());
+    final result = await db.insert('debts', debt.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateDebt(Debt debt) async {
     final db = await database;
-    return await db.update('debts', debt.toMap(), where: 'id = ?', whereArgs: [debt.id]);
+    final result = await db.update('debts', debt.toMap(), where: 'id = ?', whereArgs: [debt.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteDebt(int id) async {
     final db = await database;
-    return await db.delete('debts', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('debts', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<double> getTotalPendingDebts() async {
@@ -817,6 +850,7 @@ class DatabaseHelper {
       );
     }
 
+    RealtimeBackupService.instance.onDatabaseChanged();
     return id;
   }
 
@@ -1014,17 +1048,23 @@ class DatabaseHelper {
 
   static Future<int> insertCategory(ProductCategory category) async {
     final db = await database;
-    return await db.insert('product_categories', category.toMap());
+    final result = await db.insert('product_categories', category.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> updateCategory(ProductCategory category) async {
     final db = await database;
-    return await db.update('product_categories', category.toMap(), where: 'id = ?', whereArgs: [category.id]);
+    final result = await db.update('product_categories', category.toMap(), where: 'id = ?', whereArgs: [category.id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteCategory(int id) async {
     final db = await database;
-    return await db.delete('product_categories', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('product_categories', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   // ==================== PURCHASE ORDERS ====================
@@ -1095,6 +1135,7 @@ class DatabaseHelper {
       ));
     }
 
+    RealtimeBackupService.instance.onDatabaseChanged();
     return id;
   }
 
@@ -1111,6 +1152,8 @@ class DatabaseHelper {
         }
       }
     }
+
+    RealtimeBackupService.instance.onDatabaseChanged();
   }
 
   static Future<void> updatePurchaseOrder(PurchaseOrder order) async {
@@ -1121,11 +1164,14 @@ class DatabaseHelper {
     for (final item in order.items) {
       await db.insert('purchase_order_items', item.copyWith(orderId: order.id).toMap());
     }
+    RealtimeBackupService.instance.onDatabaseChanged();
   }
 
   static Future<int> deletePurchaseOrder(int id) async {
     final db = await database;
-    return await db.delete('purchase_orders', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('purchase_orders', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<List<PurchaseOrder>> _loadPurchaseOrderItems(List<Map<String, dynamic>> orderMaps) async {
@@ -1175,12 +1221,16 @@ class DatabaseHelper {
 
   static Future<int> insertSupplierPayment(SupplierPayment payment) async {
     final db = await database;
-    return await db.insert('supplier_payments', payment.toMap());
+    final result = await db.insert('supplier_payments', payment.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<int> deleteSupplierPayment(int id) async {
     final db = await database;
-    return await db.delete('supplier_payments', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('supplier_payments', where: 'id = ?', whereArgs: [id]);
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
   }
 
   static Future<void> copyFile(String source, String destination) async {
