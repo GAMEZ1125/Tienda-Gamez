@@ -901,7 +901,7 @@ class DatabaseHelper {
     // Add database file
     final dbPath = await getDatabasePath();
     final dbBytes = await io.File(dbPath).readAsBytes();
-    archive.files.add(ArchiveFile('tienda_gamez.db', dbBytes.length, dbBytes));
+    archive.addFile(ArchiveFile('tienda_gamez.db', dbBytes.length, dbBytes));
 
     // Add product images
     try {
@@ -911,7 +911,7 @@ class DatabaseHelper {
           if (entity is io.File) {
             final fileName = basename(entity.path);
             final imgBytes = await entity.readAsBytes();
-            archive.files.add(ArchiveFile('product_images/$fileName', imgBytes.length, imgBytes));
+            archive.addFile(ArchiveFile('product_images/$fileName', imgBytes.length, imgBytes));
           }
         }
       }
