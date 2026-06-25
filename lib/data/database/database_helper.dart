@@ -419,6 +419,19 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE purchase_orders ADD COLUMN creditDays INTEGER DEFAULT 30");
       }
     }
+    if (oldVersion < 9) {
+      final prodCols = await db.rawQuery('PRAGMA table_info(products)');
+      if (!prodCols.any((c) => c['name'] == 'allowNegativeStock')) {
+        await db.execute("ALTER TABLE products ADD COLUMN allowNegativeStock INTEGER DEFAULT 0");
+      }
+      final varCols = await db.rawQuery('PRAGMA table_info(product_variations)');
+      if (!varCols.any((c) => c['name'] == 'unitsPerPresentation')) {
+        await db.execute("ALTER TABLE product_variations ADD COLUMN unitsPerPresentation INTEGER DEFAULT 1");
+      }
+      if (!varCols.any((c) => c['name'] == 'imagePath')) {
+        await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
+      }
+    }
   }
 
   // ==================== PRODUCTS ====================

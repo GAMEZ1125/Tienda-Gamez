@@ -37,6 +37,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _hasTax = true;
   double _taxRate = 0.18;
   final _taxRateCtrl = TextEditingController(text: '18');
+  bool _allowNegativeStock = false;
   String? _imagePath;
   bool _isLoading = false;
   bool _isEditing = false;
@@ -75,6 +76,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _taxRate = product.taxRate;
       _taxRateCtrl.text = (product.taxRate * 100).toStringAsFixed(0);
       _unitsPerPackageController.text = product.unitsPerPackage.toString();
+      _allowNegativeStock = product.allowNegativeStock;
     }
     await _loadVariations();
     setState(() => _isLoading = false);
@@ -144,6 +146,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       taxRate: _hasTax ? _taxRate : 0.0,
       imagePath: _imagePath,
       unitsPerPackage: int.tryParse(_unitsPerPackageController.text) ?? 1,
+      allowNegativeStock: _allowNegativeStock,
     );
 
     try {
@@ -411,6 +414,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       subtitle: Text(_isActive ? 'Visible en ventas' : 'Oculto en ventas'),
                       value: _isActive,
                       onChanged: (v) => setState(() => _isActive = v),
+                    ),
+
+                    // Negative stock toggle
+                    SwitchListTile(
+                      title: const Text('Permitir stock negativo'),
+                      subtitle: Text(_allowNegativeStock
+                          ? 'Se puede vender sin stock disponible'
+                          : 'Se muestra agotado cuando no hay stock'),
+                      value: _allowNegativeStock,
+                      onChanged: (v) => setState(() => _allowNegativeStock = v),
+                      secondary: Icon(
+                        _allowNegativeStock ? Icons.inventory : Icons.block,
+                        color: _allowNegativeStock ? AppTheme.warningColor : Colors.grey,
+                      ),
                     ),
 
                     // Variations section (only when editing)

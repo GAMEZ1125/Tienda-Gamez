@@ -14,6 +14,7 @@ class Product extends Equatable {
   final bool isActive;
   final double taxRate;
   final int unitsPerPackage;
+  final bool allowNegativeStock;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -31,6 +32,7 @@ class Product extends Equatable {
     this.isActive = true,
     this.taxRate = 0.18,
     this.unitsPerPackage = 1,
+    this.allowNegativeStock = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -56,6 +58,7 @@ class Product extends Equatable {
     bool? isActive,
     double? taxRate,
     int? unitsPerPackage,
+    bool? allowNegativeStock,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -73,6 +76,7 @@ class Product extends Equatable {
       isActive: isActive ?? this.isActive,
       taxRate: taxRate ?? this.taxRate,
       unitsPerPackage: unitsPerPackage ?? this.unitsPerPackage,
+      allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -93,6 +97,7 @@ class Product extends Equatable {
       'isActive': isActive ? 1 : 0,
       'taxRate': taxRate,
       'unitsPerPackage': unitsPerPackage,
+      'allowNegativeStock': allowNegativeStock ? 1 : 0,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -113,6 +118,7 @@ class Product extends Equatable {
       isActive: (map['isActive'] as int?) == 1,
       taxRate: (map['taxRate'] as num?)?.toDouble() ?? 0.0,
       unitsPerPackage: map['unitsPerPackage'] as int? ?? 1,
+      allowNegativeStock: (map['allowNegativeStock'] as int?) == 1,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -136,6 +142,7 @@ class Product extends Equatable {
         isActive,
         taxRate,
         unitsPerPackage,
+        allowNegativeStock,
         createdAt,
         updatedAt,
       ];

@@ -182,7 +182,7 @@ class _POSScreenState extends State<POSScreen> {
       );
       _cartBloc.add(AddProductToCart(variationProduct, unitsPerPresentation: variation.unitsPerPresentation));
     } else {
-      if (product.stock <= 0) {
+      if (product.stock <= 0 && !product.allowNegativeStock) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Producto agotado'), backgroundColor: AppTheme.errorColor),
         );
@@ -390,12 +390,15 @@ class _ProductItem {
     if (variation != null) {
       final unitsPerPkg = product.unitsPerPackage;
       final unitsPerPres = variation!.unitsPerPresentation;
+      double effectiveStock;
       if (unitsPerPkg > 1) {
-        return product.stock * unitsPerPkg <= 0;
+        effectiveStock = product.stock * unitsPerPkg;
+      } else {
+        effectiveStock = product.stock * unitsPerPres;
       }
-      return product.stock * unitsPerPres <= 0;
+      return effectiveStock <= 0 && !product.allowNegativeStock;
     }
-    return product.isOutOfStock;
+    return product.isOutOfStock && !product.allowNegativeStock;
   }
 }
 
