@@ -602,7 +602,28 @@ class DatabaseHelper {
 
     for (final item in sale.items) {
       await db.insert('sale_items', item.copyWith(saleId: id).toMap());
-      await reduceStock(item.productId, item.quantity);
+
+      // Smart stock deduction for package products
+      final productMaps = await db.query('products', where: 'id = ?', whereArgs: [item.productId]);
+      if (productMaps.isNotEmpty) {
+        final unitsPerPkg = productMaps.first['unitsPerPackage'] as int? ?? 1;
+        final productPrice = (productMaps.first['price'] as num).toDouble();
+
+        if (unitsPerPkg > 1 && item.price != productPrice) {
+          // Individual unit sale from a package product
+          // Deduct fractional packages: quantity sold / units per package
+          final unitsToDeduct = item.quantity / unitsPerPkg;
+          await db.rawUpdate(
+            'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+            [unitsToDeduct, DateTime.now().toIso8601String(), item.productId],
+          );
+        } else {
+          // Full package sale or simple product: deduct quantity directly
+          await reduceStock(item.productId, item.quantity);
+        }
+      } else {
+        await reduceStock(item.productId, item.quantity);
+      }
     }
 
     // Update customer stats
