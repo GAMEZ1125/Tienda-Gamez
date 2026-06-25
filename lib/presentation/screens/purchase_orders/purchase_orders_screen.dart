@@ -16,6 +16,7 @@ class PurchaseOrdersScreen extends StatefulWidget {
 class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
   List<PurchaseOrder> _orders = [];
   bool _isLoading = true;
+  bool _isProcessing = false;
   String _statusFilter = 'all';
 
   @override
@@ -57,17 +58,24 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
   }
 
   Future<void> _markReceived(PurchaseOrder order) async {
-    await DatabaseHelper.updatePurchaseOrderStatus(order.id!, 'received');
-    _load();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('✅ Pedido recibido — stock actualizado'),
-        backgroundColor: AppTheme.successColor,
-      ));
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      await DatabaseHelper.updatePurchaseOrderStatus(order.id!, 'received');
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Pedido recibido — stock y costo actualizados'),
+          backgroundColor: AppTheme.successColor,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   Future<void> _cancelOrder(PurchaseOrder order) async {
+    if (_isProcessing) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -84,13 +92,18 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
       ),
     );
     if (confirm == true) {
-      await DatabaseHelper.updatePurchaseOrderStatus(order.id!, 'cancelled');
-      _load();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pedido anulado'),
-          backgroundColor: AppTheme.warningColor,
-        ));
+      setState(() => _isProcessing = true);
+      try {
+        await DatabaseHelper.updatePurchaseOrderStatus(order.id!, 'cancelled');
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Pedido anulado'),
+            backgroundColor: AppTheme.warningColor,
+          ));
+        }
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
       }
     }
   }
@@ -188,18 +201,18 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                             alignment: WrapAlignment.end,
                             children: [
                               OutlinedButton.icon(
-                                onPressed: () => _editOrder(order),
+                                onPressed: _isProcessing ? null : () => _editOrder(order),
                                 icon: const Icon(Icons.edit_outlined, size: 18),
                                 label: const Text('Editar'),
                               ),
                               FilledButton.icon(
-                                onPressed: () => _markReceived(order),
+                                onPressed: _isProcessing ? null : () => _markReceived(order),
                                 icon: const Icon(Icons.check, size: 18),
                                 label: const Text('Recibido'),
                                 style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
                               ),
                               TextButton.icon(
-                                onPressed: () => _cancelOrder(order),
+                                onPressed: _isProcessing ? null : () => _cancelOrder(order),
                                 icon: const Icon(Icons.cancel_outlined, size: 18),
                                 label: const Text('Anular'),
                                 style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
@@ -251,17 +264,17 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 20),
                               tooltip: 'Editar pedido',
-                              onPressed: () => _editOrder(order),
+                              onPressed: _isProcessing ? null : () => _editOrder(order),
                             ),
                             IconButton(
                               icon: const Icon(Icons.check_circle_outline, color: AppTheme.successColor),
                               tooltip: 'Marcar como recibido',
-                              onPressed: () => _markReceived(order),
+                              onPressed: _isProcessing ? null : () => _markReceived(order),
                             ),
                             IconButton(
                               icon: const Icon(Icons.cancel_outlined, color: AppTheme.errorColor),
                               tooltip: 'Anular pedido',
-                              onPressed: () => _cancelOrder(order),
+                              onPressed: _isProcessing ? null : () => _cancelOrder(order),
                             ),
                           ],
                         ],

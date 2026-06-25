@@ -413,33 +413,11 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
       }
     }
-    if (oldVersion < 7) {
-      // Recreate products table with REAL stock
-      await db.execute('ALTER TABLE products RENAME TO products_old');
-      await db.execute('''
-        CREATE TABLE products (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          price REAL NOT NULL,
-          cost REAL NOT NULL,
-          stock REAL DEFAULT 0,
-          minStock INTEGER DEFAULT 5,
-          category TEXT,
-          barcode TEXT,
-          imagePath TEXT,
-          isActive INTEGER DEFAULT 1,
-          taxRate REAL DEFAULT 0.18,
-          unitsPerPackage INTEGER DEFAULT 1,
-          createdAt TEXT NOT NULL,
-          updatedAt TEXT NOT NULL
-        )
-      ''');
-      await db.execute('''
-        INSERT INTO products (id, name, description, price, cost, stock, minStock, category, barcode, imagePath, isActive, taxRate, unitsPerPackage, createdAt, updatedAt)
-        SELECT id, name, description, price, cost, stock, minStock, category, barcode, imagePath, isActive, taxRate, unitsPerPackage, createdAt, updatedAt FROM products_old
-      ''');
-      await db.execute('DROP TABLE products_old');
+    if (oldVersion < 8) {
+      final orderCols = await db.rawQuery('PRAGMA table_info(purchase_orders)');
+      if (!orderCols.any((c) => c['name'] == 'creditDays')) {
+        await db.execute("ALTER TABLE purchase_orders ADD COLUMN creditDays INTEGER DEFAULT 30");
+      }
     }
   }
 
@@ -1309,13 +1287,13 @@ class DatabaseHelper {
     final db = await database;
     await db.update('purchase_orders', {'status': status}, where: 'id = ?', whereArgs: [id]);
 
-    // If received, add stock, update average cost, and create supplier debt if credit
     if (status == 'received') {
       final order = await getPurchaseOrderById(id);
       if (order != null) {
         for (final item in order.items) {
-          await increaseStock(item.productId, item.quantity);
+          // Update average cost BEFORE increasing stock
           await updateProductAverageCost(item.productId, item.quantity, item.unitCost);
+          await increaseStock(item.productId, item.quantity);
         }
 
         // If order is credit, create supplier debt
@@ -1325,8 +1303,8 @@ class DatabaseHelper {
             supplierName: order.supplierName,
             purchaseOrderId: order.id,
             amount: order.total,
-            dueDate: DateTime.now().add(const Duration(days: 30)),
-            notes: 'Pedido #${order.id} a crédito',
+            dueDate: DateTime.now().add(Duration(days: order.creditDays)),
+            notes: 'Pedido #${order.id} a crédito (${order.creditDays} días)',
           ));
         }
       }

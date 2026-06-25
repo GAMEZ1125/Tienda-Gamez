@@ -11,6 +11,7 @@ class PurchaseOrder extends Equatable {
   final double total;
   final String status; // pending, received, cancelled
   final String paymentType; // cash, credit
+  final int creditDays;
   final String? notes;
   final List<PurchaseOrderItem> items;
   final DateTime createdAt;
@@ -25,6 +26,7 @@ class PurchaseOrder extends Equatable {
     this.total = 0,
     this.status = 'pending',
     this.paymentType = 'cash',
+    this.creditDays = 30,
     this.notes,
     this.items = const [],
     DateTime? createdAt,
@@ -45,6 +47,7 @@ class PurchaseOrder extends Equatable {
     double? total,
     String? status,
     String? paymentType,
+    int? creditDays,
     String? notes,
     List<PurchaseOrderItem>? items,
     DateTime? createdAt,
@@ -59,6 +62,7 @@ class PurchaseOrder extends Equatable {
       total: total ?? this.total,
       status: status ?? this.status,
       paymentType: paymentType ?? this.paymentType,
+      creditDays: creditDays ?? this.creditDays,
       notes: notes ?? this.notes,
       items: items ?? this.items,
       createdAt: createdAt ?? this.createdAt,
@@ -76,6 +80,7 @@ class PurchaseOrder extends Equatable {
       'total': total,
       'status': status,
       'paymentType': paymentType,
+      'creditDays': creditDays,
       'notes': notes,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -92,6 +97,7 @@ class PurchaseOrder extends Equatable {
       total: (map['total'] as num).toDouble(),
       status: map['status'] as String? ?? 'pending',
       paymentType: map['paymentType'] as String? ?? 'cash',
+      creditDays: map['creditDays'] as int? ?? 30,
       notes: map['notes'] as String?,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
@@ -110,6 +116,7 @@ class PurchaseOrder extends Equatable {
         total,
         status,
         paymentType,
+        creditDays,
         notes,
         items,
         createdAt,

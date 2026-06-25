@@ -26,6 +26,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
   bool _hasTax = true;
   double _taxRate = 0.18;
   String _paymentType = 'cash';
+  final _creditDaysCtrl = TextEditingController(text: '30');
 
   @override
   void initState() {
@@ -60,6 +61,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
       )).toList();
       _notesCtrl.text = order.notes ?? '';
       _paymentType = order.paymentType;
+      _creditDaysCtrl.text = order.creditDays.toString();
     }
     setState(() => _isLoading = false);
   }
@@ -236,6 +238,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
       tax: _tax,
       total: _total,
       paymentType: _paymentType,
+      creditDays: int.tryParse(_creditDaysCtrl.text) ?? 30,
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       items: _items.map((i) => PurchaseOrderItem(
         productId: i.productId,
@@ -335,6 +338,23 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
                         ),
                       ],
                     ),
+                    if (_paymentType == 'credit') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _creditDaysCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Días para pagar',
+                          prefixIcon: Icon(Icons.calendar_today),
+                          suffixText: 'días',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Vence: ${Formatters.formatDate(DateTime.now().add(Duration(days: int.tryParse(_creditDaysCtrl.text) ?? 30)))}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
                   ],
                 ),
               ),
