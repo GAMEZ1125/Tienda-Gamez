@@ -65,8 +65,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final xFile = XFile(backupPath);
         await Share.shareXFiles(
           [xFile],
-          subject: 'Respaldo Tienda Gamez - ${Formatters.formatDate(now)}',
-          text: 'Respaldo de base de datos Tienda Gamez',
+          subject: 'Respaldo ${preferencesService.businessName} - ${Formatters.formatDate(now)}',
+          text: 'Respaldo de base de datos ${preferencesService.businessName}',
         );
       }
     } catch (e) {
@@ -703,7 +703,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 ListTile(
                   leading: Icon(Icons.store, color: AppTheme.primaryColor),
-                  title: Text('Tienda Gamez'),
+                  title: Text(preferencesService.businessName),
                   subtitle: Text('Versión 1.0.0'),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),

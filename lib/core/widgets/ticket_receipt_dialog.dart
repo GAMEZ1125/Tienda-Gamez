@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/sale_item.dart';
+import '../../services/app_state.dart';
 
 class TicketReceiptDialog extends StatelessWidget {
   final int? saleId;
@@ -40,7 +41,7 @@ class TicketReceiptDialog extends StatelessWidget {
   String get _ticketText {
     final buffer = StringBuffer();
     buffer.writeln('╔══════════════════════════════╗');
-    buffer.writeln('║       TIENDA GAMEZ           ║');
+    buffer.writeln('║  ${preferencesService.businessName.toUpperCase().padRight(26)}║');
     buffer.writeln('╚══════════════════════════════╝');
     buffer.writeln('');
     buffer.writeln('Ticket: $_ticketNumber');
@@ -72,7 +73,7 @@ class TicketReceiptDialog extends StatelessWidget {
     buffer.writeln('${"TOTAL".padRight(20)} ${Formatters.formatCurrency(total).padLeft(10)}');
     buffer.writeln('');
     buffer.writeln('  ¡Gracias por su compra!');
-    buffer.writeln('  Vuelva pronto a Tienda Gamez');
+    buffer.writeln('  Vuelva pronto a ${preferencesService.businessName}');
     return buffer.toString();
   }
 
@@ -95,13 +96,13 @@ class TicketReceiptDialog extends StatelessWidget {
 
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'image/png')],
-        text: 'Comprobante $_ticketNumber - Tienda Gamez',
-        subject: 'Comprobante $_ticketNumber - Tienda Gamez',
+        text: 'Comprobante $_ticketNumber - ${preferencesService.businessName}',
+        subject: 'Comprobante $_ticketNumber - ${preferencesService.businessName}',
       );
     } catch (_) {
       await Share.share(
         _ticketText,
-        subject: 'Comprobante $_ticketNumber - Tienda Gamez',
+        subject: 'Comprobante $_ticketNumber - ${preferencesService.businessName}',
       );
     }
   }
@@ -143,8 +144,8 @@ class TicketReceiptDialog extends StatelessWidget {
               children: [
                 const Icon(Icons.receipt_long, color: Colors.white, size: 36),
                 const SizedBox(height: 8),
-                const Text(
-                  'TIENDA GAMEZ',
+                Text(
+                  preferencesService.businessName.toUpperCase(),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -409,7 +410,7 @@ class TicketReceiptDialog extends StatelessWidget {
     );
     _drawText(
       canvas,
-      'TIENDA GAMEZ',
+      preferencesService.businessName.toUpperCase(),
       const TextStyle(
         fontSize: 30,
         fontWeight: FontWeight.bold,
@@ -548,7 +549,7 @@ class TicketReceiptDialog extends StatelessWidget {
     y += 36;
     _drawText(
       canvas,
-      'Vuelva pronto a Tienda Gamez',
+      'Vuelva pronto a ${preferencesService.businessName}',
       const TextStyle(fontSize: 20, color: Color(0xFF666666)),
       centerX,
       y,

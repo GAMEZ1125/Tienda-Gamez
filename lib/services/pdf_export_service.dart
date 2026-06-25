@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../domain/entities/customer.dart';
 import '../domain/entities/debt.dart';
+import 'app_state.dart';
 import '../data/database/database_helper.dart';
 
 class PdfExportService {
@@ -110,7 +111,7 @@ class PdfExportService {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('Tienda Gamez',
+            pw.Text(preferencesService.businessName,
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
             pw.Text('Reporte de Créditos', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
           ],
@@ -129,7 +130,7 @@ class PdfExportService {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('Tienda Gamez - Sistema POS', style: pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
+            pw.Text('${preferencesService.businessName} - Sistema POS', style: pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
             pw.Text('Página ${context.pageNumber} de ${context.pagesCount}',
                 style: pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
           ],

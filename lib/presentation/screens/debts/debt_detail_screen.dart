@@ -6,6 +6,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/debt.dart';
 import '../../../domain/entities/payment.dart';
+import '../../../services/app_state.dart';
 
 class DebtDetailScreen extends StatefulWidget {
   final int debtId;
@@ -293,7 +294,7 @@ class _DebtDetailScreenState extends State<DebtDetailScreen> {
 
   Future<void> _shareDebt(Debt debt) async {
     final buffer = StringBuffer()
-      ..writeln('Tienda Gamez - Estado de crédito')
+      ..writeln('${preferencesService.businessName} - Estado de crédito')
       ..writeln('Cliente: ${debt.customerName}')
       ..writeln('Estado: ${_statusLabel(debt.status)}')
       ..writeln('Monto total: ${Formatters.formatCurrency(debt.amount)}')

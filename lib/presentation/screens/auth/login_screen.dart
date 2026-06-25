@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../services/app_state.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/drive_backup_service.dart';
@@ -185,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // App name
                 Text(
-                  AppConstants.appName,
+                  preferencesService.businessName,
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,

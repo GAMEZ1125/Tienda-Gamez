@@ -8,6 +8,7 @@ import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/debt.dart';
 import '../../../domain/entities/supplier_debt.dart';
 import '../../../domain/entities/supplier_debt_payment.dart';
+import '../../../services/app_state.dart';
 
 class DebtsScreen extends StatefulWidget {
   const DebtsScreen({super.key});
@@ -80,7 +81,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   Future<void> _shareOverview() async {
     final buffer = StringBuffer()
-      ..writeln('Tienda Gamez - Resumen de deudas')
+      ..writeln('${preferencesService.businessName} - Resumen de deudas')
       ..writeln('Fecha: ${Formatters.formatDateTime(DateTime.now())}')
       ..writeln('')
       ..writeln('Por cobrar:')
@@ -92,12 +93,12 @@ class _DebtsScreenState extends State<DebtsScreen> {
       ..writeln('- Total pendiente: ${Formatters.formatCurrency(_totalPayablePending)}')
       ..writeln('- Deudas pendientes: ${_supplierDebts.where((d) => d.status != 'paid').length}');
 
-    await Share.share(buffer.toString(), subject: 'Resumen de deudas - Tienda Gamez');
+    await Share.share(buffer.toString(), subject: 'Resumen de deudas - ${preferencesService.businessName}');
   }
 
   Future<void> _shareReceivableDebt(Debt debt) async {
     final buffer = StringBuffer()
-      ..writeln('Tienda Gamez - Estado de deuda')
+      ..writeln('${preferencesService.businessName} - Estado de deuda')
       ..writeln('Cliente: ${debt.customerName}')
       ..writeln('Monto total: ${Formatters.formatCurrency(debt.amount)}')
       ..writeln('Pagado: ${Formatters.formatCurrency(debt.paidAmount)}')
