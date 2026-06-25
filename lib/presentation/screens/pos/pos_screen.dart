@@ -548,17 +548,21 @@ class _CartSummary extends StatelessWidget {
                 final lineId = 'product_${item.productId}_price_${item.price}';
                 return ListTile(
                   dense: true,
-                  leading: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${item.quantity}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                  leading: GestureDetector(
+                    onTap: () => _showQuantityDialog(context, lineId, item.quantity),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${item.quantity}',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 13),
+                        ),
                       ),
                     ),
                   ),
@@ -699,6 +703,46 @@ class _CartSummary extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuantityDialog(BuildContext context, String lineId, int currentQuantity) {
+    final qtyCtrl = TextEditingController(text: currentQuantity.toString());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cantidad'),
+        content: TextField(
+          controller: qtyCtrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          decoration: const InputDecoration(
+            hintText: '0',
+            suffixText: 'uds',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final qty = int.tryParse(qtyCtrl.text) ?? 0;
+              if (qty <= 0) {
+                context.read<CartBloc>().add(RemoveItemFromCart(lineId));
+              } else {
+                context.read<CartBloc>().add(UpdateItemQuantity(lineId, qty));
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('OK'),
           ),
         ],
       ),
