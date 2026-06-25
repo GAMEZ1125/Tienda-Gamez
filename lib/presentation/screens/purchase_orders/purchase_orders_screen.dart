@@ -62,11 +62,19 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     setState(() => _isProcessing = true);
     try {
       await DatabaseHelper.updatePurchaseOrderStatus(order.id!, 'received');
+      // Reload the full list to get updated status
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('✅ Pedido recibido — stock y costo actualizados'),
           backgroundColor: AppTheme.successColor,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.errorColor,
         ));
       }
     } finally {
@@ -100,6 +108,13 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Pedido anulado'),
             backgroundColor: AppTheme.warningColor,
+          ));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppTheme.errorColor,
           ));
         }
       } finally {

@@ -1645,11 +1645,11 @@ class DatabaseHelper {
     final maps = await db.query('products', where: 'id = ?', whereArgs: [productId]);
     if (maps.isEmpty) return;
 
-    final currentStock = maps.first['stock'] as int? ?? 0;
+    final currentStock = (maps.first['stock'] as num?)?.toDouble() ?? 0.0;
     final currentCost = (maps.first['cost'] as num?)?.toDouble() ?? 0.0;
 
     double newAverageCost;
-    if (currentStock == 0) {
+    if (currentStock <= 0) {
       newAverageCost = newCost;
     } else {
       final totalValue = (currentStock * currentCost) + (newQuantity * newCost);
