@@ -9,6 +9,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/ticket_receipt_dialog.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
+import '../../../domain/entities/product_category.dart';
 import '../../../domain/entities/product_variation.dart';
 import '../../../domain/entities/sale.dart';
 import '../scanner_screen.dart';
@@ -25,7 +26,10 @@ class _POSScreenState extends State<POSScreen> {
   final CartBloc _cartBloc = CartBloc();
   List<_ProductItem> _allItems = [];
   List<_ProductItem> _visibleItems = [];
+  List<ProductCategory> _categories = [];
   bool _isLoadingProducts = true;
+  bool _showLowStockOnly = false;
+  String _selectedCategory = 'Todos';
   _ProductViewMode _viewMode = _ProductViewMode.card;
 
   @override
@@ -43,6 +47,7 @@ class _POSScreenState extends State<POSScreen> {
 
   Future<void> _loadProducts() async {
     final products = await DatabaseHelper.getAllProducts();
+    final cats = await DatabaseHelper.getAllCategories();
     final items = <_ProductItem>[];
 
     for (final product in products) {
@@ -68,21 +73,37 @@ class _POSScreenState extends State<POSScreen> {
 
     setState(() {
       _allItems = items;
+      _categories = cats;
       _applyFilter(_searchController.text);
       _isLoadingProducts = false;
     });
   }
 
   void _applyFilter(String query) {
+    var items = List<_ProductItem>.from(_allItems);
+
+    // Filter by category
+    if (_selectedCategory != 'Todos') {
+      items = items.where((item) => item.product.category == _selectedCategory).toList();
+    }
+
+    // Filter by low stock
+    if (_showLowStockOnly) {
+      items = items.where((item) => item.product.isLowStock).toList();
+    }
+
+    // Filter by search query
     final normalized = query.trim().toLowerCase();
-    _visibleItems = normalized.isEmpty
-        ? List<_ProductItem>.from(_allItems)
-        : _allItems.where((item) {
-            return item.displayName.toLowerCase().contains(normalized) ||
-                (item.product.category?.toLowerCase().contains(normalized) ?? false) ||
-                (item.product.barcode?.toLowerCase().contains(normalized) ?? false) ||
-                (item.variation?.barcode?.toLowerCase().contains(normalized) ?? false);
-          }).toList();
+    if (normalized.isNotEmpty) {
+      items = items.where((item) {
+        return item.displayName.toLowerCase().contains(normalized) ||
+            (item.product.category?.toLowerCase().contains(normalized) ?? false) ||
+            (item.product.barcode?.toLowerCase().contains(normalized) ?? false) ||
+            (item.variation?.barcode?.toLowerCase().contains(normalized) ?? false);
+      }).toList();
+    }
+
+    setState(() => _visibleItems = items);
   }
 
   Future<void> _openScanner() async {
@@ -238,6 +259,58 @@ class _POSScreenState extends State<POSScreen> {
                     ],
                   ),
                 ),
+                // Category filters
+                SizedBox(
+                  height: 44,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    children: [
+                      _FilterChip(
+                        label: 'Todos',
+                        icon: Icons.inventory_2_rounded,
+                        selected: _selectedCategory == 'Todos',
+                        color: AppTheme.brandRed,
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = 'Todos';
+                            _applyFilter(_searchController.text);
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      _FilterChip(
+                        label: 'Stock Bajo',
+                        icon: Icons.warning_amber_rounded,
+                        selected: _showLowStockOnly,
+                        color: AppTheme.warningColor,
+                        onTap: () {
+                          setState(() {
+                            _showLowStockOnly = !_showLowStockOnly;
+                            _applyFilter(_searchController.text);
+                          });
+                        },
+                      ),
+                      ..._categories.map((cat) => Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: _FilterChip(
+                          label: cat.name,
+                          icon: Icons.label_outline_rounded,
+                          selected: _selectedCategory == cat.name,
+                          color: AppTheme.brandRed,
+                          onTap: () {
+                            setState(() {
+                              _selectedCategory = cat.name;
+                              _applyFilter(_searchController.text);
+                            });
+                          },
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+
+                // Products
                 Expanded(
                   child: _isLoadingProducts
                       ? const Center(child: CircularProgressIndicator())
@@ -982,6 +1055,62 @@ Widget _summaryRow(String label, String value, {bool bold = false}) {
       ],
     ),
   );
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? color.withValues(alpha: 0.1)
+          : (Theme.of(context).brightness == Brightness.dark ? AppTheme.darkScaffold : AppTheme.lightScaffold),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? color.withValues(alpha: 0.3)
+                  : (Theme.of(context).brightness == Brightness.dark ? AppTheme.darkDivider : AppTheme.lightDivider),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: selected ? color : Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? color : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SalesHistorySheet extends StatelessWidget {

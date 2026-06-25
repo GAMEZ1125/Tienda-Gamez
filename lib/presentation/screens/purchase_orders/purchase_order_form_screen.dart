@@ -139,26 +139,62 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
     if (product == null) return;
 
     final qtyCtrl = TextEditingController(text: '1');
-    final qty = await showDialog<int>(
+    final costCtrl = TextEditingController(text: product.cost.toString());
+
+    final result = await showDialog<Map<String, int>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Cantidad: ${product.name}'),
-        content: TextField(
-          controller: qtyCtrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Cantidad'),
+        title: Text('Agregar: ${product.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (product.unitsPerPackage > 1)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Costo actual: ${Formatters.formatCurrency(product.cost)} / paquete de ${product.unitsPerPackage}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            TextField(
+              controller: qtyCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Cantidad *',
+                prefixIcon: Icon(Icons.numbers),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: costCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Costo unitario *',
+                prefixIcon: Icon(Icons.attach_money),
+                prefixText: r'$ ',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Costo total: ${Formatters.formatCurrency((int.tryParse(qtyCtrl.text) ?? 1) * (double.tryParse(costCtrl.text) ?? 0))}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(onPressed: () {
             final q = int.tryParse(qtyCtrl.text) ?? 1;
-            if (q > 0) Navigator.pop(ctx, q);
+            final c = double.tryParse(costCtrl.text) ?? product.cost;
+            if (q > 0) Navigator.pop(ctx, {'qty': q, 'cost': c.toInt()});
           }, child: const Text('Agregar')),
         ],
       ),
     );
 
-    if (qty != null && qty > 0) {
+    if (result != null) {
+      final qty = result['qty'] ?? 1;
+      final cost = (result['cost'] ?? product.cost).toDouble();
       setState(() {
         final existingIdx = _items.indexWhere((i) => i.productId == product.id);
         if (existingIdx >= 0) {
@@ -166,14 +202,14 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
             productId: product.id!,
             productName: product.name,
             quantity: _items[existingIdx].quantity + qty,
-            unitCost: product.cost,
+            unitCost: cost,
           );
         } else {
           _items.add(_OrderItem(
             productId: product.id!,
             productName: product.name,
             quantity: qty,
-            unitCost: product.cost,
+            unitCost: cost,
           ));
         }
       });
