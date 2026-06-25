@@ -6,6 +6,7 @@ import '../screens/dashboard_screen.dart';
 import '../screens/pos/pos_screen.dart';
 import '../screens/inventory/inventory_screen.dart';
 import '../screens/inventory/product_form_screen.dart';
+import '../screens/inventory/inventory_movements_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/expenses/expense_form_screen.dart';
 import '../screens/customers/customers_screen.dart';
@@ -98,6 +99,10 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => ProductFormScreen(
                 productId: int.tryParse(state.pathParameters['id'] ?? ''),
               ),
+            ),
+            GoRoute(
+              path: 'movements',
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const InventoryMovementsScreen()),
             ),
           ],
         ),

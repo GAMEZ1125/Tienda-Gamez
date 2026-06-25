@@ -109,6 +109,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 context.push('/categories');
               } else if (value == 'purchase_orders') {
                 context.push('/purchase-orders');
+              } else if (value == 'movements') {
+                context.push('/inventory/movements');
               }
             },
             itemBuilder: (_) => [
@@ -126,6 +128,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 child: ListTile(
                   leading: Icon(Icons.receipt_long_outlined),
                   title: Text('Pedidos a Proveedores'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'movements',
+                child: ListTile(
+                  leading: Icon(Icons.inventory_rounded),
+                  title: Text('Movimientos de Inventario'),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),

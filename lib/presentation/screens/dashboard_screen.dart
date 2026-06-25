@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/database/database_helper.dart';
 import '../../domain/entities/debt.dart';
+import '../../domain/entities/supplier_debt.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,13 +18,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _stats;
   List<Debt> _overdueDebts = [];
   List<Debt> _dueSoonDebts = [];
+  List<SupplierDebt> _overdueSupplierDebts = [];
+  List<SupplierDebt> _dueSoonSupplierDebts = [];
+  double _totalPendingSupplierDebts = 0;
+  int _pendingSupplierDebtsCount = 0;
   bool _isLoading = true;
   bool _notificationsShown = false;
 
   // Calendar state
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
-  Map<DateTime, List<Debt>> _calendarEvents = {};
+  Map<DateTime, List<dynamic>> _calendarEvents = {};
 
   @override
   void initState() {
@@ -37,27 +42,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final overdue = await DatabaseHelper.getOverdueDebts();
     final dueSoon = await DatabaseHelper.getDebtsDueSoon(3);
     final allDebts = await DatabaseHelper.getAllDebts();
+    final supplierOverdue = await DatabaseHelper.getOverdueSupplierDebts();
+    final supplierDueSoon = await DatabaseHelper.getSupplierDebtsDueSoon(3);
+    final allSupplierDebts = await DatabaseHelper.getAllSupplierDebtsForCalendar();
+    final totalPendingSupplier = await DatabaseHelper.getTotalPendingSupplierDebts();
+    final pendingSupplierCount = await DatabaseHelper.getPendingSupplierDebtsCount();
     setState(() {
       _stats = stats;
       _overdueDebts = overdue;
       _dueSoonDebts = dueSoon;
-      _calendarEvents = _buildEventsMap(allDebts);
+      _overdueSupplierDebts = supplierOverdue;
+      _dueSoonSupplierDebts = supplierDueSoon;
+      _totalPendingSupplierDebts = totalPendingSupplier;
+      _pendingSupplierDebtsCount = pendingSupplierCount;
+      _calendarEvents = _buildEventsMap(allDebts, allSupplierDebts);
       _isLoading = false;
     });
 
     if (!_notificationsShown && mounted) {
       _notificationsShown = true;
-      final hasOverdue = overdue.isNotEmpty;
-      final hasDueSoon = dueSoon.isNotEmpty;
+      final hasOverdue = overdue.isNotEmpty || supplierOverdue.isNotEmpty;
+      final hasDueSoon = dueSoon.isNotEmpty || supplierDueSoon.isNotEmpty;
       if (hasOverdue || hasDueSoon) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _showNotificationDialog(overdue, dueSoon);
+          if (mounted) _showNotificationDialog(overdue, dueSoon, supplierOverdue, supplierDueSoon);
         });
       }
     }
   }
 
-  void _showNotificationDialog(List<Debt> overdue, List<Debt> dueSoon) {
+  void _showNotificationDialog(List<Debt> overdue, List<Debt> dueSoon, List<SupplierDebt> supplierOverdue, List<SupplierDebt> supplierDueSoon) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -66,12 +80,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (overdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.1),
+                color: (overdue.isNotEmpty || supplierOverdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                overdue.isNotEmpty ? Icons.notifications_active : Icons.notifications,
-                color: overdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor,
+                overdue.isNotEmpty || supplierOverdue.isNotEmpty ? Icons.notifications_active : Icons.notifications,
+                color: overdue.isNotEmpty || supplierOverdue.isNotEmpty ? AppTheme.errorColor : AppTheme.warningColor,
                 size: 22,
               ),
             ),
@@ -101,7 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${overdue.length} crédito(s) vencido(s)',
+                        '${overdue.length} crédito(s) vencido(s) de clientes',
                         style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.errorColor, fontSize: 14),
                       ),
                     ),
@@ -123,6 +137,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text('Y ${overdue.length - 3} más...', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(height: 12),
             ],
+            if (supplierOverdue.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business, color: AppTheme.errorColor, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${supplierOverdue.length} deuda(s) vencida(s) a proveedores',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.errorColor, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...supplierOverdue.take(3).map((d) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(d.supplierName, style: const TextStyle(fontSize: 13))),
+                    Text(Formatters.formatCurrency(d.amount - d.paidAmount),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorColor)),
+                  ],
+                ),
+              )),
+              if (supplierOverdue.length > 3)
+                Text('Y ${supplierOverdue.length - 3} más...', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              const SizedBox(height: 12),
+            ],
             if (dueSoon.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -137,6 +186,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Expanded(
                       child: Text(
                         '${dueSoon.length} crédito(s) por vencer',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.warningColor, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (supplierDueSoon.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business, color: AppTheme.warningColor, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${supplierDueSoon.length} deuda(s) a proveedores por vencer',
                         style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.warningColor, fontSize: 14),
                       ),
                     ),
@@ -197,16 +268,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Notification banner
-                    if (_overdueDebts.isNotEmpty || _dueSoonDebts.isNotEmpty)
+                    if (_overdueDebts.isNotEmpty || _dueSoonDebts.isNotEmpty || _overdueSupplierDebts.isNotEmpty || _dueSoonSupplierDebts.isNotEmpty)
                       _buildNotificationBanner(),
-                    if (_overdueDebts.isNotEmpty || _dueSoonDebts.isNotEmpty)
+                    if (_overdueDebts.isNotEmpty || _dueSoonDebts.isNotEmpty || _overdueSupplierDebts.isNotEmpty || _dueSoonSupplierDebts.isNotEmpty)
                       const SizedBox(height: 12),
 
                     // Quick stats
                     _buildQuickStats(isDark),
                     const SizedBox(height: 16),
 
-                    // Credit summary
+                    // Credit summary (customers + suppliers)
                     _buildCreditSummary(isDark),
                     const SizedBox(height: 16),
 
@@ -214,9 +285,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildCalendarSection(isDark),
                     const SizedBox(height: 16),
 
-                    // Overdue debts
+                    // Overdue customer debts
                     if (_overdueDebts.isNotEmpty) ...[
-                      _buildSectionTitle('Créditos Vencidos', Icons.warning_amber_rounded, AppTheme.errorColor),
+                      _buildSectionTitle('Créditos Vencidos (Clientes)', Icons.warning_amber_rounded, AppTheme.errorColor),
                       const SizedBox(height: 8),
                       ..._overdueDebts.take(3).map((d) => _debtTile(d, true, isDark)),
                       if (_overdueDebts.length > 3)
@@ -230,9 +301,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // Due soon
+                    // Overdue supplier debts
+                    if (_overdueSupplierDebts.isNotEmpty) ...[
+                      _buildSectionTitle('Deudas Vencidas (Proveedores)', Icons.business, AppTheme.errorColor),
+                      const SizedBox(height: 8),
+                      ..._overdueSupplierDebts.take(3).map((d) => _supplierDebtTile(d, true, isDark)),
+                      if (_overdueSupplierDebts.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: TextButton(
+                            onPressed: () => context.push('/suppliers'),
+                            child: const Text('Ver más vencidas...'),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Due soon customer debts
                     if (_dueSoonDebts.isNotEmpty) ...[
-                      _buildSectionTitle('Próximos a Vencer', Icons.schedule_rounded, AppTheme.warningColor),
+                      _buildSectionTitle('Próximos a Vencer (Clientes)', Icons.schedule_rounded, AppTheme.warningColor),
                       const SizedBox(height: 8),
                       ..._dueSoonDebts.take(3).map((d) => _debtTile(d, false, isDark)),
                       if (_dueSoonDebts.length > 3)
@@ -245,7 +332,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                     ],
 
-                    if (_overdueDebts.isEmpty && _dueSoonDebts.isEmpty)
+                    // Due soon supplier debts
+                    if (_dueSoonSupplierDebts.isNotEmpty) ...[
+                      _buildSectionTitle('Prox. a Vencer (Proveedores)', Icons.business, AppTheme.warningColor),
+                      const SizedBox(height: 8),
+                      ..._dueSoonSupplierDebts.take(3).map((d) => _supplierDebtTile(d, false, isDark)),
+                      if (_dueSoonSupplierDebts.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: TextButton(
+                            onPressed: () => context.push('/suppliers'),
+                            child: const Text('Ver más por vencer...'),
+                          ),
+                        ),
+                    ],
+
+                    if (_overdueDebts.isEmpty && _dueSoonDebts.isEmpty && _overdueSupplierDebts.isEmpty && _dueSoonSupplierDebts.isEmpty)
                       _buildAllClearCard(isDark),
                   ],
                 ),
@@ -255,8 +357,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildNotificationBanner() {
-    final totalAlerts = _overdueDebts.length + _dueSoonDebts.length;
-    final hasOverdue = _overdueDebts.isNotEmpty;
+    final totalAlerts = _overdueDebts.length + _dueSoonDebts.length + _overdueSupplierDebts.length + _dueSoonSupplierDebts.length;
+    final hasOverdue = _overdueDebts.isNotEmpty || _overdueSupplierDebts.isNotEmpty;
     final bannerColor = hasOverdue ? AppTheme.errorColor : AppTheme.warningColor;
     
     return Container(
@@ -303,9 +405,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        hasOverdue
-                            ? '${_overdueDebts.length} vencido(s) · ${_dueSoonDebts.length} por vencer'
-                            : '${_dueSoonDebts.length} crédito(s) por vencer',
+                        '${_overdueDebts.length + _overdueSupplierDebts.length} vencido(s) · ${_dueSoonDebts.length + _dueSoonSupplierDebts.length} por vencer',
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
                       ),
                     ],
@@ -373,6 +473,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pendingAmount = (_stats!['pendingDebts'] as num).toDouble();
     final pendingCount = (_stats!['pendingDebtsCount'] as num).toInt();
     final totalOverdue = _overdueDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount));
+    final totalPendingAll = pendingAmount + _totalPendingSupplierDebts;
+    final totalCountAll = pendingCount + _pendingSupplierDebtsCount;
+    final totalOverdueAll = totalOverdue + _overdueSupplierDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount));
 
     return Container(
       decoration: BoxDecoration(
@@ -422,12 +525,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pendiente Total',
+                        'Pendiente Total (Clientes + Proveedores)',
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        Formatters.formatCurrency(pendingAmount),
+                        Formatters.formatCurrency(totalPendingAll),
                         style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5),
                       ),
                     ],
@@ -440,13 +543,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '$pendingCount créditos',
+                    '$totalCountAll créditos',
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
-            if (totalOverdue > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _creditBadge('Clientes', Formatters.formatCurrency(pendingAmount), '$pendingCount', AppTheme.accentEmerald),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _creditBadge('Proveedores', Formatters.formatCurrency(_totalPendingSupplierDebts), '$_pendingSupplierDebtsCount', AppTheme.accentBlue),
+                ),
+              ],
+            ),
+            if (totalOverdueAll > 0) ...[
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -460,7 +575,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${_overdueDebts.length} vencido(s) — ${Formatters.formatCurrency(totalOverdue)}',
+                        '${_overdueDebts.length + _overdueSupplierDebts.length} vencido(s) — ${Formatters.formatCurrency(totalOverdueAll)}',
                         style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -470,6 +585,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _creditBadge(String label, String amount, String count, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text(amount, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text('$count crédito(s)', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+        ],
       ),
     );
   }
@@ -506,7 +641,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          TableCalendar<Debt>(
+          TableCalendar<dynamic>(
             firstDay: DateTime.now().subtract(const Duration(days: 90)),
             lastDay: DateTime.now().add(const Duration(days: 365)),
             focusedDay: _focusedDay,
@@ -550,8 +685,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               markerBuilder: (context, date, events) {
                 if (events.isEmpty) return null;
                 final debts = events.whereType<Debt>();
-                final hasOverdue = debts.any((d) => d.status != 'paid' && d.dueDate.isBefore(DateTime.now()));
-                final hasPending = debts.any((d) => d.status != 'paid' && !d.dueDate.isBefore(DateTime.now()));
+                final supplierDebts = events.whereType<SupplierDebt>();
+                final hasOverdue = debts.any((d) => d.status != 'paid' && d.dueDate.isBefore(DateTime.now())) ||
+                    supplierDebts.any((d) => d.status != 'paid' && d.dueDate.isBefore(DateTime.now()));
+                final hasPending = debts.any((d) => d.status != 'paid' && !d.dueDate.isBefore(DateTime.now())) ||
+                    supplierDebts.any((d) => d.status != 'paid' && !d.dueDate.isBefore(DateTime.now()));
 
                 return Positioned(
                   bottom: 2,
@@ -597,9 +735,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDayDebts(bool isDark) {
     final dateKey = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day);
-    final dayDebts = _calendarEvents[dateKey];
+    final dayItems = _calendarEvents[dateKey];
 
-    if (dayDebts == null || dayDebts.isEmpty) {
+    if (dayItems == null || dayItems.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: Text(
@@ -609,7 +747,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final totalPending = dayDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount));
+    final dayDebts = dayItems.whereType<Debt>().toList();
+    final daySupplierDebts = dayItems.whereType<SupplierDebt>().toList();
+    final totalPending = dayDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount)) +
+        daySupplierDebts.fold(0.0, (sum, d) => sum + (d.amount - d.paidAmount));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +760,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             children: [
               Text(
-                '${dayDebts.length} crédito(s)',
+                '${dayItems.length} crédito(s)',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary),
               ),
               const Spacer(),
@@ -631,13 +772,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const Divider(height: 1),
-        ...dayDebts.take(4).map((d) => _debtTile(d, d.status != 'paid' && d.dueDate.isBefore(DateTime.now()), isDark)),
-        if (dayDebts.length > 4)
+        ...dayItems.take(4).map((item) {
+          if (item is Debt) {
+            return _debtTile(item, item.status != 'paid' && item.dueDate.isBefore(DateTime.now()), isDark);
+          } else if (item is SupplierDebt) {
+            return _supplierDebtTile(item, item.status != 'paid' && item.dueDate.isBefore(DateTime.now()), isDark);
+          }
+          return const SizedBox.shrink();
+        }),
+        if (dayItems.length > 4)
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 10),
             child: TextButton(
               onPressed: () => context.push('/debts'),
-              child: Text('Ver ${dayDebts.length - 4} más...'),
+              child: Text('Ver ${dayItems.length - 4} más...'),
             ),
           ),
       ],
@@ -738,6 +886,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _supplierDebtTile(SupplierDebt debt, bool isOverdue, bool isDark) {
+    final remaining = debt.amount - debt.paidAmount;
+    final statusColor = isOverdue ? AppTheme.errorColor : AppTheme.warningColor;
+    
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: () => context.push('/suppliers/${debt.supplierId}'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isOverdue ? Icons.error_outline_rounded : Icons.schedule_rounded,
+                  size: 20,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      debt.supplierName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Proveedor · Vence: ${Formatters.formatDate(debt.dueDate)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    Formatters.formatCurrency(remaining),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isOverdue ? 'VENCIDA' : 'Pendiente',
+                      style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAllClearCard(bool isDark) {
     return Container(
       width: double.infinity,
@@ -770,7 +992,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'No hay créditos pendientes',
+            'No hay créditos pendientes (clientes ni proveedores)',
             style: TextStyle(
               fontSize: 13,
               color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
@@ -781,11 +1003,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Map<DateTime, List<Debt>> _buildEventsMap(List<Debt> debts) {
-    final map = <DateTime, List<Debt>>{};
+  Map<DateTime, List<dynamic>> _buildEventsMap(List<Debt> debts, List<SupplierDebt> supplierDebts) {
+    final map = <DateTime, List<dynamic>>{};
     for (final d in debts) {
       final dateKey = DateTime(d.dueDate.year, d.dueDate.month, d.dueDate.day);
       map.putIfAbsent(dateKey, () => []).add(d);
+    }
+    for (final sd in supplierDebts) {
+      final dateKey = DateTime(sd.dueDate.year, sd.dueDate.month, sd.dueDate.day);
+      map.putIfAbsent(dateKey, () => []).add(sd);
     }
     return map;
   }

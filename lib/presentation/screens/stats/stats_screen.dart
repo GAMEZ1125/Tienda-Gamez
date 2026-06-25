@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_widget.dart';
 import '../../../data/database/database_helper.dart';
+import '../../../services/pdf_export_service.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -17,6 +18,7 @@ class _StatsScreenState extends State<StatsScreen> {
   List<Map<String, dynamic>> _dailySales = [];
   List<Map<String, dynamic>> _topProducts = [];
   List<Map<String, dynamic>> _topProductsWithProfit = [];
+  List<Map<String, dynamic>> _profitByCategory = [];
   double _totalProfit = 0;
   double _totalCogs = 0;
   bool _isLoading = true;
@@ -40,6 +42,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final topWithProfit = await DatabaseHelper.getTopProductsWithProfit(monthStart, now);
     final totalProfit = await DatabaseHelper.getTotalProfit(monthStart, now);
     final totalCogs = await DatabaseHelper.getTotalCogs(monthStart, now);
+    final profitByCategory = await DatabaseHelper.getProfitByCategory(monthStart, now);
 
     setState(() {
       _stats = stats;
@@ -48,6 +51,7 @@ class _StatsScreenState extends State<StatsScreen> {
       _topProductsWithProfit = topWithProfit;
       _totalProfit = totalProfit;
       _totalCogs = totalCogs;
+      _profitByCategory = profitByCategory;
       _isLoading = false;
     });
   }
@@ -58,6 +62,11 @@ class _StatsScreenState extends State<StatsScreen> {
       appBar: AppBar(
         title: const Text('Estadísticas'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            tooltip: 'Exportar PDF',
+            onPressed: () => PdfExportService.exportStatsPdf(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadStats,
@@ -191,6 +200,53 @@ class _StatsScreenState extends State<StatsScreen> {
                           ),
                         ),
                       ),
+                    const SizedBox(height: 16),
+
+                    // Profit by category
+                    Text(
+                      'Utilidad por Categoría',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_profitByCategory.isEmpty)
+                      const Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('Sin ventas este mes')),
+                        ),
+                      )
+                    else
+                      ..._profitByCategory.map((cat) {
+                        final profit = (cat['totalProfit'] as num).toDouble();
+                        final revenue = (cat['totalRevenue'] as num).toDouble();
+                        final margin = revenue > 0 ? (profit / revenue * 100) : 0.0;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: profit >= 0 ? AppTheme.successColor.withValues(alpha: 0.1) : AppTheme.errorColor.withValues(alpha: 0.1),
+                              child: Icon(
+                                Icons.category_rounded,
+                                color: profit >= 0 ? AppTheme.successColor : AppTheme.errorColor,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(cat['category'] as String),
+                            subtitle: Text('${cat['totalQuantity']} vendidos | Ingresos: ${Formatters.formatCurrency(revenue)}'),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(Formatters.formatCurrency(profit),
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: profit >= 0 ? AppTheme.successColor : AppTheme.errorColor)),
+                                Text('${margin.toStringAsFixed(1)}% margen',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
                     const SizedBox(height: 16),
 
                     // Top products with profit

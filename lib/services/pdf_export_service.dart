@@ -49,6 +49,46 @@ class PdfExportService {
     }
   }
 
+  /// Generates and shares a PDF with statistics and profit by category.
+  static Future<void> exportStatsPdf(BuildContext context) async {
+    try {
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      final weekAgo = now.subtract(const Duration(days: 7));
+
+      final stats = await DatabaseHelper.getDashboardStats();
+      final dailySales = await DatabaseHelper.getDailySales(weekAgo, now);
+      final topProducts = await DatabaseHelper.getTopProducts(monthStart, now);
+      final topWithProfit = await DatabaseHelper.getTopProductsWithProfit(monthStart, now);
+      final totalProfit = await DatabaseHelper.getTotalProfit(monthStart, now);
+      final totalCogs = await DatabaseHelper.getTotalCogs(monthStart, now);
+      final profitByCategory = await DatabaseHelper.getProfitByCategory(monthStart, now);
+
+      final pdfBytes = await _generateStatsPdf(
+        stats: stats,
+        dailySales: dailySales,
+        topProducts: topProducts,
+        topWithProfit: topWithProfit,
+        totalProfit: totalProfit,
+        totalCogs: totalCogs,
+        profitByCategory: profitByCategory,
+        monthStart: monthStart,
+        now: now,
+      );
+
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: 'estadisticas_${_dateFormat.format(DateTime.now())}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al generar PDF: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   static Future<Uint8List> _generatePdf(
     List<Customer> customers,
     List<Debt> allDebts,
@@ -296,6 +336,271 @@ class PdfExportService {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(4),
       child: pw.Text(text, style: pw.TextStyle(fontSize: 7, color: color)),
+    );
+  }
+
+  static Future<Uint8List> _generateStatsPdf({
+    required Map<String, dynamic> stats,
+    required List<Map<String, dynamic>> dailySales,
+    required List<Map<String, dynamic>> topProducts,
+    required List<Map<String, dynamic>> topWithProfit,
+    required double totalProfit,
+    required double totalCogs,
+    required List<Map<String, dynamic>> profitByCategory,
+    required DateTime monthStart,
+    required DateTime now,
+  }) async {
+    final pdf = pw.Document(title: 'Estadísticas del Negocio');
+    final monthSales = (stats['monthSales'] as num).toDouble();
+    final monthExpenses = (stats['monthExpenses'] as num).toDouble();
+    final netProfit = (stats['netProfit'] as num).toDouble();
+    final pendingDebts = (stats['pendingDebts'] as num).toDouble();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(context),
+        footer: (context) => _buildFooter(context),
+        build: (context) => [
+          pw.Center(
+            child: pw.Text(
+              'ESTADÍSTICAS DEL NEGOCIO',
+              style: pw.TextStyle(
+                fontSize: 18,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.blue800,
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Center(
+            child: pw.Text(
+              'Período: ${_dateFormat.format(monthStart)} - ${_dateFormat.format(now)}',
+              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+            ),
+          ),
+          pw.SizedBox(height: 16),
+
+          // Summary cards
+          pw.Row(
+            children: [
+              _summaryCard(_currencyFormat.format(monthSales), 'Ventas del Mes', PdfColors.green700),
+              pw.SizedBox(width: 8),
+              _summaryCard(_currencyFormat.format(monthExpenses), 'Gastos', PdfColors.red700),
+              pw.SizedBox(width: 8),
+              _summaryCard(_currencyFormat.format(netProfit), 'Ganancia Neta', PdfColors.blue700),
+              pw.SizedBox(width: 8),
+              _summaryCard(_currencyFormat.format(pendingDebts), 'Créditos Pend.', PdfColors.orange700),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+
+          // Profit summary
+          pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.green50,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: PdfColors.green200),
+            ),
+            child: pw.Row(
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Utilidad Bruta', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(_currencyFormat.format(totalProfit),
+                          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+                    ],
+                  ),
+                ),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Costo de Ventas (COGS)', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(_currencyFormat.format(totalCogs),
+                          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.orange700)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+
+          // Profit by category
+          pw.Text('UTILIDAD POR CATEGORÍA',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+          pw.SizedBox(height: 8),
+          if (profitByCategory.isEmpty)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              child: pw.Text('Sin ventas este mes', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
+            )
+          else
+            _buildCategoryProfitTable(profitByCategory),
+          pw.SizedBox(height: 20),
+
+          // Top products with profit
+          pw.Text('UTILIDAD POR PRODUCTO (TOP 10)',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+          pw.SizedBox(height: 8),
+          if (topWithProfit.isEmpty)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              child: pw.Text('Sin ventas este mes', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
+            )
+          else
+            _buildProductProfitTable(topWithProfit),
+
+          // Daily sales chart (text table)
+          pw.SizedBox(height: 20),
+          pw.Text('VENTAS DE LOS ÚLTIMOS 7 DÍAS',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+          pw.SizedBox(height: 8),
+          if (dailySales.isEmpty)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              child: pw.Text('Sin datos de ventas', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
+            )
+          else
+            _buildDailySalesTable(dailySales),
+        ],
+      ),
+    );
+
+    return await pdf.save();
+  }
+
+  static pw.Widget _buildCategoryProfitTable(List<Map<String, dynamic>> categories) {
+    final totalRevenue = categories.fold(0.0, (sum, c) => sum + (c['totalRevenue'] as num).toDouble());
+    final totalCost = categories.fold(0.0, (sum, c) => sum + (c['totalCost'] as num).toDouble());
+    final totalProfit = categories.fold(0.0, (sum, c) => sum + (c['totalProfit'] as num).toDouble());
+    final totalQty = categories.fold(0, (sum, c) => sum + (c['totalQuantity'] as int));
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(2),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(1.2),
+        3: pw.FlexColumnWidth(1.2),
+        4: pw.FlexColumnWidth(1.2),
+        5: pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.blue50),
+          children: ['Categoría', 'Cant.', 'Ingresos', 'Costo', 'Utilidad', '% Margen']
+              .map((h) => pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(h, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                  ))
+              .toList(),
+        ),
+        ...categories.map((c) {
+          final profit = (c['totalProfit'] as num).toDouble();
+          final revenue = (c['totalRevenue'] as num).toDouble();
+          final margin = revenue > 0 ? (profit / revenue * 100) : 0.0;
+          return pw.TableRow(
+            children: [
+              _cell(c['category'] as String),
+              _cell('${c['totalQuantity']}'),
+              _cell(_currencyFormat.format(revenue)),
+              _cell(_currencyFormat.format((c['totalCost'] as num).toDouble())),
+              _cell(_currencyFormat.format(profit), color: profit >= 0 ? PdfColors.green700 : PdfColors.red700),
+              _cell('${margin.toStringAsFixed(1)}%', color: profit >= 0 ? PdfColors.green700 : PdfColors.red700),
+            ],
+          );
+        }),
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.grey100),
+          children: [
+            _cell('TOTAL', color: PdfColors.black),
+            _cell('$totalQty'),
+            _cell(_currencyFormat.format(totalRevenue), color: PdfColors.black),
+            _cell(_currencyFormat.format(totalCost), color: PdfColors.black),
+            _cell(_currencyFormat.format(totalProfit), color: PdfColors.black),
+            _cell(totalRevenue > 0 ? '${(totalProfit / totalRevenue * 100).toStringAsFixed(1)}%' : '0%',
+                color: PdfColors.black),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildProductProfitTable(List<Map<String, dynamic>> products) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(0.4),
+        1: pw.FlexColumnWidth(2),
+        2: pw.FlexColumnWidth(0.8),
+        3: pw.FlexColumnWidth(1.2),
+        4: pw.FlexColumnWidth(1),
+        5: pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.blue50),
+          children: ['#', 'Producto', 'Cant.', 'Ingresos', 'Costo', 'Utilidad']
+              .map((h) => pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(h, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                  ))
+              .toList(),
+        ),
+        ...products.asMap().entries.map((entry) {
+          final p = entry.value;
+          final profit = (p['totalProfit'] as num).toDouble();
+          return pw.TableRow(
+            children: [
+              _cell('${entry.key + 1}'),
+              _cell(p['productName'] as String),
+              _cell('${p['totalQuantity']}'),
+              _cell(_currencyFormat.format((p['totalAmount'] as num).toDouble())),
+              _cell(_currencyFormat.format((p['totalCost'] as num).toDouble())),
+              _cell(_currencyFormat.format(profit), color: profit >= 0 ? PdfColors.green700 : PdfColors.red700),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  static pw.Widget _buildDailySalesTable(List<Map<String, dynamic>> dailySales) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(2),
+        1: pw.FlexColumnWidth(1.5),
+        2: pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.blue50),
+          children: ['Fecha', 'Total Ventas', '# Ventas']
+              .map((h) => pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(h, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                  ))
+              .toList(),
+        ),
+        ...dailySales.map((d) {
+          return pw.TableRow(
+            children: [
+              _cell(d['day'] as String),
+              _cell(_currencyFormat.format((d['total'] as num).toDouble())),
+              _cell('${d['count']}'),
+            ],
+          );
+        }),
+      ],
     );
   }
 }

@@ -21,6 +21,7 @@ import '../../domain/entities/supplier_payment.dart';
 import '../../domain/entities/product_variation.dart';
 import '../../domain/entities/supplier_debt.dart';
 import '../../domain/entities/supplier_debt_payment.dart';
+import '../../domain/entities/inventory_movement.dart';
 import '../../services/realtime_backup_service.dart';
 
 class DatabaseHelper {
@@ -261,6 +262,23 @@ class DatabaseHelper {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE inventory_movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        productId INTEGER NOT NULL,
+        productName TEXT NOT NULL,
+        productVariationId INTEGER,
+        variationName TEXT,
+        type TEXT NOT NULL,
+        quantityDelta REAL NOT NULL,
+        previousStock REAL NOT NULL,
+        newStock REAL NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Insert default categories
     final defaultCategories = [
       'Videojuegos', 'Consolas', 'Accesorios',
@@ -432,6 +450,24 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
       }
     }
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          productId INTEGER NOT NULL,
+          productName TEXT NOT NULL,
+          productVariationId INTEGER,
+          variationName TEXT,
+          type TEXT NOT NULL,
+          quantityDelta REAL NOT NULL,
+          previousStock REAL NOT NULL,
+          newStock REAL NOT NULL,
+          description TEXT,
+          createdAt TEXT NOT NULL,
+          FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
+        )
+      ''');
+    }
   }
 
   // ==================== PRODUCTS ====================
@@ -599,6 +635,8 @@ class DatabaseHelper {
       if (productMaps.isNotEmpty) {
         final unitsPerPkg = productMaps.first['unitsPerPackage'] as int? ?? 1;
         final unitsPerPres = item.unitsPerPresentation;
+        final previousStock = (productMaps.first['stock'] as num?)?.toDouble() ?? 0.0;
+        final productName = productMaps.first['name'] as String? ?? '';
 
         double unitsToDeduct;
         if (unitsPerPkg > 1) {
@@ -614,6 +652,21 @@ class DatabaseHelper {
         await db.rawUpdate(
           'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
           [unitsToDeduct, DateTime.now().toIso8601String(), item.productId],
+        );
+
+        final newStockVal = previousStock - unitsToDeduct;
+        final type = unitsPerPres > 1 ? 'variation_sale' : 'sale';
+        final desc = unitsPerPres > 1
+            ? 'Venta #$id - ${item.productName} (variación x$unitsPerPres)'
+            : 'Venta #$id - ${item.productName}';
+        await _logMovement(
+          productId: item.productId,
+          productName: productName,
+          type: type,
+          quantityDelta: -unitsToDeduct,
+          previousStock: previousStock,
+          newStock: newStockVal,
+          description: desc,
         );
       } else {
         await reduceStock(item.productId, item.quantity);
@@ -1307,9 +1360,23 @@ class DatabaseHelper {
       final order = await getPurchaseOrderById(id);
       if (order != null) {
         for (final item in order.items) {
+          final productMaps = await db.query('products', where: 'id = ?', whereArgs: [item.productId]);
+          final previousStock = productMaps.isNotEmpty ? (productMaps.first['stock'] as num?)?.toDouble() ?? 0.0 : 0.0;
+          final productName = productMaps.isNotEmpty ? productMaps.first['name'] as String? ?? '' : '';
+
           // Update average cost BEFORE increasing stock
           await updateProductAverageCost(item.productId, item.quantity, item.unitCost);
           await increaseStock(item.productId, item.quantity);
+
+          await _logMovement(
+            productId: item.productId,
+            productName: productName,
+            type: 'purchase_order_receive',
+            quantityDelta: item.quantity.toDouble(),
+            previousStock: previousStock,
+            newStock: previousStock + item.quantity,
+            description: 'Pedido #$id recibido - ${item.productName}',
+          );
         }
 
         // If order is credit, create supplier debt
@@ -1772,5 +1839,168 @@ class DatabaseHelper {
       [start.toIso8601String(), end.toIso8601String(), 'completed'],
     );
     return (result.first['cogs'] as num).toDouble();
+  }
+
+  // ==================== SUPPLIER DEBT DASHBOARD ====================
+
+  static Future<double> getTotalPendingSupplierDebts() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(amount - paidAmount), 0) as total FROM supplier_debts WHERE status != 'paid'",
+    );
+    return (result.first['total'] as num).toDouble();
+  }
+
+  static Future<int> getPendingSupplierDebtsCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM supplier_debts WHERE status != 'paid'",
+    );
+    return (result.first['count'] as int);
+  }
+
+  static Future<List<SupplierDebt>> getOverdueSupplierDebts() async {
+    final now = DateTime.now().toIso8601String();
+    final db = await database;
+    final maps = await db.query(
+      'supplier_debts',
+      where: "status != 'paid' AND dueDate < ?",
+      whereArgs: [now],
+      orderBy: 'dueDate ASC',
+    );
+    return await _loadSupplierDebtPayments(maps);
+  }
+
+  static Future<List<SupplierDebt>> getSupplierDebtsDueSoon(int days) async {
+    final now = DateTime.now();
+    final deadline = now.add(Duration(days: days)).toIso8601String();
+    final nowStr = now.toIso8601String();
+    final db = await database;
+    final maps = await db.query(
+      'supplier_debts',
+      where: "status != 'paid' AND dueDate >= ? AND dueDate <= ?",
+      whereArgs: [nowStr, deadline],
+      orderBy: 'dueDate ASC',
+    );
+    return await _loadSupplierDebtPayments(maps);
+  }
+
+  static Future<List<SupplierDebt>> getAllSupplierDebtsForCalendar() async {
+    final db = await database;
+    final maps = await db.query('supplier_debts', orderBy: 'dueDate ASC');
+    return await _loadSupplierDebtPayments(maps);
+  }
+
+  // ==================== PROFIT BY CATEGORY ====================
+
+  static Future<List<Map<String, dynamic>>> getProfitByCategory(DateTime start, DateTime end) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''SELECT COALESCE(p.category, 'Sin categoría') as category,
+         SUM(si.quantity) as totalQuantity,
+         SUM(si.subtotal) as totalRevenue,
+         SUM(si.quantity * p.cost) as totalCost,
+         SUM(si.subtotal - (si.quantity * p.cost)) as totalProfit
+         FROM sale_items si
+         JOIN sales s ON si.saleId = s.id
+         JOIN products p ON si.productId = p.id
+         WHERE s.date >= ? AND s.date <= ? AND s.status = ?
+         GROUP BY p.category
+         ORDER BY totalProfit DESC''',
+      [start.toIso8601String(), end.toIso8601String(), 'completed'],
+    );
+  }
+
+  // ==================== INVENTORY MOVEMENTS ====================
+
+  static Future<void> _logMovement({
+    required int productId,
+    required String productName,
+    required String type,
+    required double quantityDelta,
+    required double previousStock,
+    required double newStock,
+    String? description,
+  }) async {
+    await insertInventoryMovement(InventoryMovement(
+      productId: productId,
+      productName: productName,
+      type: type,
+      quantityDelta: quantityDelta,
+      previousStock: previousStock,
+      newStock: newStock,
+      description: description,
+    ));
+  }
+
+  static Future<int> insertInventoryMovement(InventoryMovement movement) async {
+    final db = await database;
+    final result = await db.insert('inventory_movements', movement.toMap());
+    RealtimeBackupService.instance.onDatabaseChanged();
+    return result;
+  }
+
+  static Future<List<InventoryMovement>> getAllInventoryMovements() async {
+    final db = await database;
+    final maps = await db.query('inventory_movements', orderBy: 'createdAt DESC');
+    return maps.map((map) => InventoryMovement.fromMap(map)).toList();
+  }
+
+  static Future<List<InventoryMovement>> getInventoryMovementsByProduct(int productId) async {
+    final db = await database;
+    final maps = await db.query(
+      'inventory_movements',
+      where: 'productId = ?',
+      whereArgs: [productId],
+      orderBy: 'createdAt DESC',
+    );
+    return maps.map((map) => InventoryMovement.fromMap(map)).toList();
+  }
+
+  static Future<List<InventoryMovement>> getInventoryMovementsByDateRange(DateTime start, DateTime end) async {
+    final db = await database;
+    final maps = await db.query(
+      'inventory_movements',
+      where: 'createdAt >= ? AND createdAt <= ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: 'createdAt DESC',
+    );
+    return maps.map((map) => InventoryMovement.fromMap(map)).toList();
+  }
+
+  static Future<List<InventoryMovement>> getInventoryMovementsFiltered({
+    String? type,
+    int? productId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = await database;
+    final where = <String>[];
+    final args = <dynamic>[];
+
+    if (type != null && type != 'all') {
+      where.add('type = ?');
+      args.add(type);
+    }
+    if (productId != null) {
+      where.add('productId = ?');
+      args.add(productId);
+    }
+    if (startDate != null) {
+      where.add('createdAt >= ?');
+      args.add(startDate.toIso8601String());
+    }
+    if (endDate != null) {
+      where.add('createdAt <= ?');
+      args.add(endDate.toIso8601String());
+    }
+
+    final maps = await db.query(
+      'inventory_movements',
+      where: where.isNotEmpty ? where.join(' AND ') : null,
+      whereArgs: args.isNotEmpty ? args : null,
+      orderBy: 'createdAt DESC',
+    );
+    return maps.map((map) => InventoryMovement.fromMap(map)).toList();
   }
 }
