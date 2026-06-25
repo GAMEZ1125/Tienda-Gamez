@@ -14,24 +14,25 @@ abstract class CartEvent extends Equatable {
 class AddProductToCart extends CartEvent {
   final Product product;
   final int quantity;
-  const AddProductToCart(this.product, {this.quantity = 1});
+  final String? cartLineId;
+  const AddProductToCart(this.product, {this.quantity = 1, this.cartLineId});
   @override
-  List<Object?> get props => [product, quantity];
+  List<Object?> get props => [product, quantity, cartLineId];
 }
 
 class RemoveItemFromCart extends CartEvent {
-  final int productId;
-  const RemoveItemFromCart(this.productId);
+  final String lineId;
+  const RemoveItemFromCart(this.lineId);
   @override
-  List<Object?> get props => [productId];
+  List<Object?> get props => [lineId];
 }
 
 class UpdateItemQuantity extends CartEvent {
-  final int productId;
+  final String lineId;
   final int quantity;
-  const UpdateItemQuantity(this.productId, this.quantity);
+  const UpdateItemQuantity(this.lineId, this.quantity);
   @override
-  List<Object?> get props => [productId, quantity];
+  List<Object?> get props => [lineId, quantity];
 }
 
 class ClearCart extends CartEvent {}
@@ -137,7 +138,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   void _onAddProduct(AddProductToCart event, Emitter<CartState> emit) {
     final items = List<SaleItem>.from(state.items);
-    final index = items.indexWhere((item) => item.productId == event.product.id);
+    final lineId = event.cartLineId ?? 'product_${event.product.id}';
+    final index = items.indexWhere((item) => _getLineId(item) == lineId);
 
     if (index >= 0) {
       final existing = items[index];
@@ -160,15 +162,17 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     emit(state.copyWith(items: items));
   }
 
+  String _getLineId(SaleItem item) => 'product_${item.productId}_price_${item.price}';
+
   void _onRemoveItem(RemoveItemFromCart event, Emitter<CartState> emit) {
     final items = List<SaleItem>.from(state.items);
-    items.removeWhere((item) => item.productId == event.productId);
+    items.removeWhere((item) => _getLineId(item) == event.lineId);
     emit(state.copyWith(items: items));
   }
 
   void _onUpdateQuantity(UpdateItemQuantity event, Emitter<CartState> emit) {
     final items = List<SaleItem>.from(state.items);
-    final index = items.indexWhere((item) => item.productId == event.productId);
+    final index = items.indexWhere((item) => _getLineId(item) == event.lineId);
     if (index >= 0) {
       if (event.quantity <= 0) {
         items.removeAt(index);

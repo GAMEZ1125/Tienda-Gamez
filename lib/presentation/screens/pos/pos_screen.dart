@@ -23,8 +23,8 @@ class POSScreen extends StatefulWidget {
 class _POSScreenState extends State<POSScreen> {
   final _searchController = TextEditingController();
   final CartBloc _cartBloc = CartBloc();
-  final List<Product> _allProducts = [];
-  List<Product> _visibleProducts = [];
+  List<_ProductItem> _allItems = [];
+  List<_ProductItem> _visibleItems = [];
   bool _isLoadingProducts = true;
   _ProductViewMode _viewMode = _ProductViewMode.card;
 
@@ -42,11 +42,32 @@ class _POSScreenState extends State<POSScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final results = await DatabaseHelper.getAllProducts();
+    final products = await DatabaseHelper.getAllProducts();
+    final items = <_ProductItem>[];
+
+    for (final product in products) {
+      // Always add the main product
+      items.add(_ProductItem(
+        product: product,
+        variation: null,
+        displayName: product.unitsPerPackage > 1
+            ? '${product.name} (Cubeta completa)'
+            : product.name,
+      ));
+
+      // Add variations
+      final variations = await DatabaseHelper.getVariationsByProduct(product.id!);
+      for (final v in variations.where((v) => v.isActive)) {
+        items.add(_ProductItem(
+          product: product,
+          variation: v,
+          displayName: '${product.name} - ${v.name}',
+        ));
+      }
+    }
+
     setState(() {
-      _allProducts
-        ..clear()
-        ..addAll(results);
+      _allItems = items;
       _applyFilter(_searchController.text);
       _isLoadingProducts = false;
     });
@@ -54,12 +75,13 @@ class _POSScreenState extends State<POSScreen> {
 
   void _applyFilter(String query) {
     final normalized = query.trim().toLowerCase();
-    _visibleProducts = normalized.isEmpty
-        ? List<Product>.from(_allProducts)
-        : _allProducts.where((product) {
-            return product.name.toLowerCase().contains(normalized) ||
-                (product.category?.toLowerCase().contains(normalized) ?? false) ||
-                (product.barcode?.toLowerCase().contains(normalized) ?? false);
+    _visibleItems = normalized.isEmpty
+        ? List<_ProductItem>.from(_allItems)
+        : _allItems.where((item) {
+            return item.displayName.toLowerCase().contains(normalized) ||
+                (item.product.category?.toLowerCase().contains(normalized) ?? false) ||
+                (item.product.barcode?.toLowerCase().contains(normalized) ?? false) ||
+                (item.variation?.barcode?.toLowerCase().contains(normalized) ?? false);
           }).toList();
   }
 
@@ -73,37 +95,87 @@ class _POSScreenState extends State<POSScreen> {
 
     if (barcode == null || !mounted) return;
 
+    // Check main product barcode
     final product = await DatabaseHelper.getProductByBarcode(barcode);
-    if (!mounted) return;
+    if (product != null) {
+      if (!mounted) return;
+      if (product.stock <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto agotado'), backgroundColor: AppTheme.errorColor),
+        );
+        return;
+      }
+      _addToCart(_ProductItem(product: product, variation: null, displayName: product.name));
+      return;
+    }
 
-    if (product == null) {
+    // Check variation barcode
+    final variation = await DatabaseHelper.getVariationByBarcode(barcode);
+    if (variation != null) {
+      final parentProduct = await DatabaseHelper.getProductById(variation.productId);
+      if (parentProduct != null && mounted) {
+        _addToCart(_ProductItem(
+          product: parentProduct,
+          variation: variation,
+          displayName: '${parentProduct.name} - ${variation.name}',
+        ));
+      }
+      return;
+    }
+
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Producto no encontrado: $barcode'),
           backgroundColor: AppTheme.warningColor,
         ),
       );
-      return;
     }
+  }
 
-    if (product.stock <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto agotado'),
-          backgroundColor: AppTheme.errorColor,
-        ),
+  void _addToCart(_ProductItem item) {
+    final product = item.product;
+    final variation = item.variation;
+
+    if (variation != null) {
+      // Check effective stock for variation
+      final unitsPerPkg = product.unitsPerPackage;
+      final unitsPerPres = variation.unitsPerPresentation;
+      double effectiveStock;
+      if (unitsPerPkg > 1) {
+        effectiveStock = product.stock * unitsPerPkg;
+      } else {
+        effectiveStock = product.stock * unitsPerPres;
+      }
+      if (effectiveStock <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Variación agotada'), backgroundColor: AppTheme.errorColor),
+        );
+        return;
+      }
+
+      final variationProduct = product.copyWith(
+        price: variation.price,
+        cost: variation.cost > 0 ? variation.cost : product.cost,
+        stock: effectiveStock,
       );
-      return;
+      _cartBloc.add(AddProductToCart(variationProduct));
+    } else {
+      if (product.stock <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto agotado'), backgroundColor: AppTheme.errorColor),
+        );
+        return;
+      }
+      _cartBloc.add(AddProductToCart(product));
     }
 
-    // Agregar producto al carrito
-    if (mounted) {
-      setState(() {
-        _searchController.text = product.name;
-        _applyFilter(product.name);
-      });
-      _addProductToCart(product);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.displayName} agregado'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   @override
@@ -134,7 +206,6 @@ class _POSScreenState extends State<POSScreen> {
             ),
             body: Column(
               children: [
-                // Search bar
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(
@@ -143,7 +214,7 @@ class _POSScreenState extends State<POSScreen> {
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Buscar producto por nombre o código...',
+                            hintText: 'Buscar producto...',
                             prefixIcon: const Icon(Icons.search),
                             suffixIcon: _searchController.text.isNotEmpty
                                 ? IconButton(
@@ -161,21 +232,16 @@ class _POSScreenState extends State<POSScreen> {
                                     tooltip: 'Escanear código de barras',
                                   ),
                           ),
-                          onChanged: (value) {
-                            setState(() => _applyFilter(value));
-                          },
+                          onChanged: (value) => setState(() => _applyFilter(value)),
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                // Products
                 Expanded(
-                  flex: 5,
                   child: _isLoadingProducts
                       ? const Center(child: CircularProgressIndicator())
-                      : _visibleProducts.isEmpty
+                      : _visibleItems.isEmpty
                           ? EmptyState(
                               icon: Icons.shopping_bag_outlined,
                               title: _searchController.text.isEmpty
@@ -194,29 +260,27 @@ class _POSScreenState extends State<POSScreen> {
                                     crossAxisSpacing: 8,
                                     mainAxisSpacing: 8,
                                   ),
-                                  itemCount: _visibleProducts.length,
+                                  itemCount: _visibleItems.length,
                                   itemBuilder: (context, index) {
-                                    final product = _visibleProducts[index];
+                                    final item = _visibleItems[index];
                                     return _ProductCard(
-                                      product: product,
-                                      onTap: () => _addProductToCart(product),
+                                      item: item,
+                                      onTap: () => _addToCart(item),
                                     );
                                   },
                                 )
                               : ListView.builder(
                                   padding: const EdgeInsets.all(8),
-                                  itemCount: _visibleProducts.length,
+                                  itemCount: _visibleItems.length,
                                   itemBuilder: (context, index) {
-                                    final product = _visibleProducts[index];
+                                    final item = _visibleItems[index];
                                     return _ProductListTile(
-                                      product: product,
-                                      onTap: () => _addProductToCart(product),
+                                      item: item,
+                                      onTap: () => _addToCart(item),
                                     );
                                   },
                                 ),
                 ),
-
-                // Cart summary
                 if (cartState.items.isNotEmpty)
                   _CartSummary(cartState: cartState),
               ],
@@ -234,252 +298,124 @@ class _POSScreenState extends State<POSScreen> {
       builder: (context) => const _SalesHistorySheet(),
     );
   }
+}
 
-  void _addProductToCart(Product product) {
-    if (product.stock <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Producto agotado')),
-      );
-      return;
-    }
-    _showVariationSelector(product);
-  }
+class _ProductItem {
+  final Product product;
+  final ProductVariation? variation;
+  final String displayName;
 
-  String _formatStock(double stock) {
-    if (stock <= 0) return 'Agotado';
-    if (stock % 1 == 0) return stock.toInt().toString();
-    return stock.toStringAsFixed(2);
-  }
+  const _ProductItem({
+    required this.product,
+    this.variation,
+    required this.displayName,
+  });
 
-  Future<void> _showVariationSelector(Product product) async {
-    final variations = await DatabaseHelper.getVariationsByProduct(product.id!);
-    final activeVariations = variations.where((v) => v.isActive).toList();
-
-    if (activeVariations.isEmpty) {
-      _cartBloc.add(AddProductToCart(product));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${product.name} agregado al carrito'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-      return;
-    }
-
-    if (!mounted) return;
-
-    // Show dialog with main product + variations
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(product.name),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Selecciona qué vender:', style: TextStyle(fontSize: 13)),
-              const SizedBox(height: 12),
-              // Main product option
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: product.isOutOfStock
-                      ? AppTheme.errorColor.withValues(alpha: 0.1)
-                      : AppTheme.successColor.withValues(alpha: 0.1),
-                  child: Icon(
-                    product.isOutOfStock ? Icons.block : Icons.shopping_bag,
-                    size: 18,
-                    color: product.isOutOfStock ? AppTheme.errorColor : AppTheme.successColor,
-                  ),
-                ),
-                title: const Text('Producto principal', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(
-                  '\$${product.price.toStringAsFixed(2)} · ${product.unitsPerPackage > 1 ? '${_formatStock(product.stock)} paquetes (${_formatStock(product.effectiveStock)} uds)' : 'Stock: ${_formatStock(product.stock)}'}',
-                  style: TextStyle(
-                    color: product.isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-                enabled: !product.isOutOfStock,
-                onTap: () => Navigator.pop(ctx, {'type': 'main'}),
-              ),
-              const Divider(),
-              const Text('Opciones / Presentaciones:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 4),
-              ...activeVariations.map((v) {
-                final unitsPerPkg = product.unitsPerPackage;
-                final unitsPerPres = v.unitsPerPresentation;
-                double displayStock;
-                if (unitsPerPkg > 1) {
-                  displayStock = product.stock * unitsPerPkg;
-                } else {
-                  displayStock = product.stock * unitsPerPres;
-                }
-                final isOutOfStock = displayStock <= 0;
-                return ListTile(
-                  leading: v.imagePath != null && v.imagePath!.isNotEmpty && File(v.imagePath!).existsSync()
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(v.imagePath!),
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : CircleAvatar(
-                          backgroundColor: isOutOfStock
-                              ? AppTheme.errorColor.withValues(alpha: 0.1)
-                              : AppTheme.primaryColor.withValues(alpha: 0.1),
-                          child: Icon(
-                            isOutOfStock ? Icons.block : Icons.check,
-                            size: 16,
-                            color: isOutOfStock ? AppTheme.errorColor : AppTheme.primaryColor,
-                          ),
-                        ),
-                  title: Text(v.name),
-                  subtitle: Text(
-                    '\$${v.price.toStringAsFixed(2)} · ${isOutOfStock ? 'Agotado' : '${_formatStock(displayStock)} uds disponibles'}${v.unitsPerPresentation > 1 ? ' (${v.unitsPerPresentation}x)' : ''}',
-                    style: TextStyle(
-                      color: isOutOfStock ? AppTheme.errorColor : Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  enabled: !isOutOfStock,
-                  onTap: () => Navigator.pop(ctx, {'type': 'variation', 'variation': v}),
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == null) return;
-
-    final type = result['type'] as String;
-
-    if (type == 'main') {
-      // Sell the main product
-      _cartBloc.add(AddProductToCart(product));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${product.name} agregado al carrito'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } else if (type == 'variation') {
-      final v = result['variation'] as ProductVariation;
+  double get price => variation?.price ?? product.price;
+  String? get imagePath => variation?.imagePath ?? product.imagePath;
+  bool get isOutOfStock {
+    if (variation != null) {
       final unitsPerPkg = product.unitsPerPackage;
-      final unitsPerPres = v.unitsPerPresentation;
+      final unitsPerPres = variation!.unitsPerPresentation;
+      if (unitsPerPkg > 1) {
+        return product.stock * unitsPerPkg <= 0;
+      }
+      return product.stock * unitsPerPres <= 0;
+    }
+    return product.isOutOfStock;
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  final _ProductItem item;
+  final VoidCallback onTap;
+
+  const _ProductCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVariation = item.variation != null;
+    final displayPrice = item.price;
+    final product = item.product;
+
+    String stockText;
+    if (isVariation) {
+      final unitsPerPkg = product.unitsPerPackage;
+      final unitsPerPres = item.variation!.unitsPerPresentation;
       double effectiveStock;
       if (unitsPerPkg > 1) {
         effectiveStock = product.stock * unitsPerPkg;
       } else {
         effectiveStock = product.stock * unitsPerPres;
       }
-
-      if (effectiveStock <= 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Variación agotada')),
-          );
-        }
-        return;
-      }
-
-      final variationProduct = product.copyWith(
-        price: v.price,
-        cost: v.cost > 0 ? v.cost : product.cost,
-        stock: effectiveStock,
-      );
-
-      _cartBloc.add(AddProductToCart(variationProduct));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${product.name} - ${v.name} agregado'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      stockText = 'Stock: ${effectiveStock % 1 == 0 ? effectiveStock.toInt() : effectiveStock.toStringAsFixed(0)}';
+    } else if (product.unitsPerPackage > 1) {
+      stockText = '${product.stock.toInt()} paquetes';
+    } else {
+      stockText = 'Stock: ${product.stock % 1 == 0 ? product.stock.toInt() : product.stock.toStringAsFixed(0)}';
     }
-  }
-}
 
-class _ProductCard extends StatelessWidget {
-  final Product product;
-  final VoidCallback onTap;
-
-  const _ProductCard({required this.product, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
       child: InkWell(
-        onTap: onTap,
+        onTap: item.isOutOfStock ? null : onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: double.infinity,
-                    color: AppTheme.pearl,
-                    child: _ProductImage(product: product),
+        child: Opacity(
+          opacity: item.isOutOfStock ? 0.4 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      color: AppTheme.pearl,
+                      child: _ProductImage(imagePath: item.imagePath),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                product.name,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                Formatters.formatCurrency(product.price),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    Icons.inventory_2,
-                    size: 14,
-                    color: product.isLowStock ? AppTheme.warningColor : Colors.grey,
+                const SizedBox(height: 8),
+                Text(
+                  item.displayName,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  Formatters.formatCurrency(displayPrice),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isVariation ? AppTheme.accentEmerald : AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Stock: ${product.stock}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: product.isLowStock ? AppTheme.warningColor : Colors.grey,
-                        ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2,
+                      size: 12,
+                      color: item.isOutOfStock ? AppTheme.errorColor : Colors.grey,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      stockText,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: item.isOutOfStock ? AppTheme.errorColor : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -488,36 +424,66 @@ class _ProductCard extends StatelessWidget {
 }
 
 class _ProductListTile extends StatelessWidget {
-  final Product product;
+  final _ProductItem item;
   final VoidCallback onTap;
 
-  const _ProductListTile({required this.product, required this.onTap});
+  const _ProductListTile({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final isVariation = item.variation != null;
+    final product = item.product;
+
+    String stockText;
+    if (isVariation) {
+      final unitsPerPkg = product.unitsPerPackage;
+      final unitsPerPres = item.variation!.unitsPerPresentation;
+      double effectiveStock;
+      if (unitsPerPkg > 1) {
+        effectiveStock = product.stock * unitsPerPkg;
+      } else {
+        effectiveStock = product.stock * unitsPerPres;
+      }
+      stockText = '${effectiveStock % 1 == 0 ? effectiveStock.toInt() : effectiveStock.toStringAsFixed(0)} uds';
+    } else if (product.unitsPerPackage > 1) {
+      stockText = '${product.stock.toInt()} paquetes';
+    } else {
+      stockText = '${product.stock % 1 == 0 ? product.stock.toInt() : product.stock.toStringAsFixed(0)} uds';
+    }
+
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.all(10),
+        onTap: item.isOutOfStock ? null : onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            width: 60,
-            height: 60,
+            width: 52,
+            height: 52,
             color: AppTheme.pearl,
-            child: _ProductImage(product: product),
+            child: _ProductImage(imagePath: item.imagePath),
           ),
         ),
-        title: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          '${Formatters.formatCurrency(product.price)} • Stock: ${product.stock}',
+        title: Text(
+          item.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
+        ),
+        subtitle: Text(
+          '${Formatters.formatCurrency(item.price)} · $stockText',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: isVariation ? AppTheme.accentEmerald : Colors.grey[600],
+          ),
         ),
         trailing: Icon(
-          product.stock <= 0 ? Icons.block : Icons.add_shopping_cart,
-          color: product.stock <= 0 ? AppTheme.errorColor : AppTheme.primaryColor,
+          item.isOutOfStock ? Icons.block : Icons.add_shopping_cart,
+          color: item.isOutOfStock ? AppTheme.errorColor : AppTheme.primaryColor,
+          size: 20,
         ),
       ),
     );
@@ -525,16 +491,15 @@ class _ProductListTile extends StatelessWidget {
 }
 
 class _ProductImage extends StatelessWidget {
-  final Product product;
+  final String? imagePath;
 
-  const _ProductImage({required this.product});
+  const _ProductImage({this.imagePath});
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = product.imagePath;
-    if (imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync()) {
+    if (imagePath != null && imagePath!.isNotEmpty && File(imagePath!).existsSync()) {
       return Image.file(
-        File(imagePath),
+        File(imagePath!),
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -544,11 +509,7 @@ class _ProductImage extends StatelessWidget {
     return Container(
       color: AppTheme.pearl,
       child: Center(
-        child: Icon(
-          Icons.inventory_2_outlined,
-          size: 38,
-          color: Colors.grey[400],
-        ),
+        child: Icon(Icons.inventory_2_outlined, size: 32, color: Colors.grey[400]),
       ),
     );
   }
@@ -577,7 +538,6 @@ class _CartSummary extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Cart items list (compact)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 150),
             child: ListView.builder(
@@ -585,6 +545,7 @@ class _CartSummary extends StatelessWidget {
               itemCount: cartState.items.length,
               itemBuilder: (context, index) {
                 final item = cartState.items[index];
+                final lineId = 'product_${item.productId}_price_${item.price}';
                 return ListTile(
                   dense: true,
                   leading: Container(
@@ -597,10 +558,7 @@ class _CartSummary extends StatelessWidget {
                     child: Center(
                       child: Text(
                         '${item.quantity}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                       ),
                     ),
                   ),
@@ -617,9 +575,9 @@ class _CartSummary extends StatelessWidget {
                         icon: const Icon(Icons.remove_circle_outline, size: 20),
                         onPressed: () {
                           if (item.quantity <= 1) {
-                            context.read<CartBloc>().add(RemoveItemFromCart(item.productId));
+                            context.read<CartBloc>().add(RemoveItemFromCart(lineId));
                           } else {
-                            context.read<CartBloc>().add(UpdateItemQuantity(item.productId, item.quantity - 1));
+                            context.read<CartBloc>().add(UpdateItemQuantity(lineId, item.quantity - 1));
                           }
                         },
                       ),
@@ -630,7 +588,6 @@ class _CartSummary extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: Colors.grey[200]),
-          // Totals
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -639,24 +596,15 @@ class _CartSummary extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Subtotal', style: TextStyle(fontSize: 14)),
-                    Text(
-                      Formatters.formatCurrency(cartState.subtotal),
-                      style: const TextStyle(fontSize: 14),
-                    ),
+                    Text(Formatters.formatCurrency(cartState.subtotal), style: const TextStyle(fontSize: 14)),
                   ],
                 ),
                 if (cartState.discountAmount > 0)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Descuento',
-                        style: TextStyle(fontSize: 14, color: Colors.green[600]),
-                      ),
-                      Text(
-                        '-${Formatters.formatCurrency(cartState.discountAmount)}',
-                        style: TextStyle(fontSize: 14, color: Colors.green[600]),
-                      ),
+                      const Text('Descuento', style: TextStyle(fontSize: 14, color: Colors.green)),
+                      Text('-${Formatters.formatCurrency(cartState.discountAmount)}', style: const TextStyle(fontSize: 14, color: Colors.green)),
                     ],
                   ),
                 if (cartState.taxAmount > 0)
@@ -664,40 +612,27 @@ class _CartSummary extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('IGV', style: TextStyle(fontSize: 14)),
-                      Text(
-                        Formatters.formatCurrency(cartState.taxAmount),
-                        style: const TextStyle(fontSize: 14),
-                      ),
+                      Text(Formatters.formatCurrency(cartState.taxAmount), style: const TextStyle(fontSize: 14)),
                     ],
                   ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'TOTAL',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('TOTAL', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     Text(
                       Formatters.formatCurrency(cartState.total),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Action buttons row
                 Row(
                   children: [
-                    // Three action buttons take less space
                     Tooltip(
                       message: 'Descuento',
                       child: SizedBox(
-                        width: 36,
-                        height: 36,
+                        width: 36, height: 36,
                         child: OutlinedButton(
                           onPressed: () => _showDiscountDialog(context),
                           style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
@@ -709,8 +644,7 @@ class _CartSummary extends StatelessWidget {
                     Tooltip(
                       message: 'Método de pago',
                       child: SizedBox(
-                        width: 36,
-                        height: 36,
+                        width: 36, height: 36,
                         child: OutlinedButton(
                           onPressed: () => _showPaymentMethodDialog(context),
                           style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
@@ -722,8 +656,7 @@ class _CartSummary extends StatelessWidget {
                     Tooltip(
                       message: 'Cliente',
                       child: SizedBox(
-                        width: 36,
-                        height: 36,
+                        width: 36, height: 36,
                         child: OutlinedButton(
                           onPressed: () => _showCustomerSelector(context),
                           style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
@@ -732,26 +665,19 @@ class _CartSummary extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    // Total + Vender
                     Expanded(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Text(
                             Formatters.formatCurrency(cartState.total),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
-                            ),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
                             height: 40,
                             child: ElevatedButton.icon(
-                              onPressed: cartState.items.isEmpty
-                                  ? null
-                                  : () => _finalizeSale(context),
+                              onPressed: cartState.items.isEmpty ? null : () => _finalizeSale(context),
                               icon: const Icon(Icons.shopping_cart_checkout, size: 18),
                               label: const Text('Vender', style: TextStyle(fontSize: 13)),
                               style: ElevatedButton.styleFrom(
@@ -844,17 +770,12 @@ class _CartSummary extends StatelessWidget {
                 title: Text(method),
                 value: method,
                 groupValue: selected,
-                onChanged: (v) {
-                  setDialogState(() => selected = v!);
-                },
+                onChanged: (v) => setDialogState(() => selected = v!),
               );
             }).toList(),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
             FilledButton(
               onPressed: () {
                 context.read<CartBloc>().add(SetPaymentMethod(selected));
@@ -947,10 +868,7 @@ Future<void> _finalizeSale(BuildContext context) async {
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancelar'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
         FilledButton.icon(
           onPressed: () => Navigator.pop(ctx, true),
           icon: const Icon(Icons.check),
@@ -978,8 +896,6 @@ Future<void> _finalizeSale(BuildContext context) async {
 
       if (context.mounted) {
         context.read<CartBloc>().add(ClearCart());
-        
-        // Mostrar ticket/comprobante
         await showDialog(
           context: context,
           builder: (_) => TicketReceiptDialog(
@@ -998,10 +914,7 @@ Future<void> _finalizeSale(BuildContext context) async {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al registrar venta: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
+          SnackBar(content: Text('Error al registrar venta: $e'), backgroundColor: AppTheme.errorColor),
         );
       }
     }
@@ -1036,15 +949,9 @@ class _SalesHistorySheet extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Text(
-                    'Historial de Ventas',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Historial de Ventas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                 ],
               ),
             ),
@@ -1056,10 +963,7 @@ class _SalesHistorySheet extends StatelessWidget {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                   final sales = snapshot.data!;
                   if (sales.isEmpty) {
-                    return const EmptyState(
-                      icon: Icons.receipt_long_outlined,
-                      title: 'Sin ventas hoy',
-                    );
+                    return const EmptyState(icon: Icons.receipt_long_outlined, title: 'Sin ventas hoy');
                   }
                   return ListView.builder(
                     controller: scrollController,
