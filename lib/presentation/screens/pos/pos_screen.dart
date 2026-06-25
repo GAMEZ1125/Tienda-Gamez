@@ -180,7 +180,7 @@ class _POSScreenState extends State<POSScreen> {
         cost: variation.cost > 0 ? variation.cost : product.cost,
         stock: effectiveStock,
       );
-      _cartBloc.add(AddProductToCart(variationProduct));
+      _cartBloc.add(AddProductToCart(variationProduct, unitsPerPresentation: variation.unitsPerPresentation));
     } else {
       if (product.stock <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -188,7 +188,7 @@ class _POSScreenState extends State<POSScreen> {
         );
         return;
       }
-      _cartBloc.add(AddProductToCart(product));
+      _cartBloc.add(AddProductToCart(product, unitsPerPresentation: 1));
     }
 
     ScaffoldMessenger.of(context).showSnackBar(

@@ -581,24 +581,27 @@ class DatabaseHelper {
     for (final item in sale.items) {
       await db.insert('sale_items', item.copyWith(saleId: id).toMap());
 
-      // Smart stock deduction for package products
+      // Stock deduction based on product type and presentation
       final productMaps = await db.query('products', where: 'id = ?', whereArgs: [item.productId]);
       if (productMaps.isNotEmpty) {
         final unitsPerPkg = productMaps.first['unitsPerPackage'] as int? ?? 1;
-        final productPrice = (productMaps.first['price'] as num).toDouble();
+        final unitsPerPres = item.unitsPerPresentation;
 
-        if (unitsPerPkg > 1 && item.price != productPrice) {
-          // Individual unit sale from a package product
-          // Deduct fractional packages: quantity sold / units per package
-          final unitsToDeduct = item.quantity / unitsPerPkg;
-          await db.rawUpdate(
-            'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
-            [unitsToDeduct, DateTime.now().toIso8601String(), item.productId],
-          );
+        double unitsToDeduct;
+        if (unitsPerPkg > 1) {
+          // Case 1: Package product — deduct fractional packages
+          unitsToDeduct = (item.quantity * unitsPerPres) / unitsPerPkg;
+        } else if (unitsPerPres > 1) {
+          // Case 2: Simple product with pack presentation — deduct multiple units
+          unitsToDeduct = (item.quantity * unitsPerPres).toDouble();
         } else {
-          // Full package sale or simple product: deduct quantity directly
-          await reduceStock(item.productId, item.quantity);
+          // Simple product, single unit sale
+          unitsToDeduct = item.quantity.toDouble();
         }
+        await db.rawUpdate(
+          'UPDATE products SET stock = stock - ?, updatedAt = ? WHERE id = ?',
+          [unitsToDeduct, DateTime.now().toIso8601String(), item.productId],
+        );
       } else {
         await reduceStock(item.productId, item.quantity);
       }

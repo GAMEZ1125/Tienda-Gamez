@@ -15,9 +15,10 @@ class AddProductToCart extends CartEvent {
   final Product product;
   final int quantity;
   final String? cartLineId;
-  const AddProductToCart(this.product, {this.quantity = 1, this.cartLineId});
+  final int unitsPerPresentation;
+  const AddProductToCart(this.product, {this.quantity = 1, this.cartLineId, this.unitsPerPresentation = 1});
   @override
-  List<Object?> get props => [product, quantity, cartLineId];
+  List<Object?> get props => [product, quantity, cartLineId, unitsPerPresentation];
 }
 
 class RemoveItemFromCart extends CartEvent {
@@ -156,6 +157,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         quantity: event.quantity,
         subtotal: event.product.price * event.quantity,
         taxRate: event.product.taxRate,
+        unitsPerPresentation: event.unitsPerPresentation,
       ));
     }
 

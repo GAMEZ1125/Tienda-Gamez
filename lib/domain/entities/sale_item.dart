@@ -10,6 +10,7 @@ class SaleItem extends Equatable {
   final int quantity;
   final double subtotal;
   final double taxRate;
+  final int unitsPerPresentation;
 
   const SaleItem({
     this.id,
@@ -21,6 +22,7 @@ class SaleItem extends Equatable {
     required this.quantity,
     this.subtotal = 0,
     this.taxRate = 0.18,
+    this.unitsPerPresentation = 1,
   });
 
   double get taxAmount => subtotal * taxRate;
@@ -35,6 +37,7 @@ class SaleItem extends Equatable {
     int? quantity,
     double? subtotal,
     double? taxRate,
+    int? unitsPerPresentation,
   }) {
     return SaleItem(
       id: id ?? this.id,
@@ -46,6 +49,7 @@ class SaleItem extends Equatable {
       quantity: quantity ?? this.quantity,
       subtotal: subtotal ?? this.subtotal,
       taxRate: taxRate ?? this.taxRate,
+      unitsPerPresentation: unitsPerPresentation ?? this.unitsPerPresentation,
     );
   }
 
