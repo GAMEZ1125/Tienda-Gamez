@@ -572,6 +572,12 @@ class _CartSummary extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 20),
+                        onPressed: () {
+                          context.read<CartBloc>().add(UpdateItemQuantity(lineId, item.quantity + 1));
+                        },
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.remove_circle_outline, size: 20),
                         onPressed: () {
                           if (item.quantity <= 1) {
