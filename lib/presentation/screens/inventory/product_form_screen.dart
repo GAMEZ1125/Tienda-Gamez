@@ -9,6 +9,7 @@ import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_category.dart';
 import '../../../domain/entities/product_variation.dart';
+import '../subscription/premium_gate.dart';
 import '../scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -443,7 +444,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   Widget _buildVariationsSection() {
-    return Card(
+    final content = Card(
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -487,6 +488,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ],
         ),
       ),
+    );
+    return PremiumGate(
+      featureName: 'Variaciones / Presentaciones',
+      child: content,
     );
   }
 

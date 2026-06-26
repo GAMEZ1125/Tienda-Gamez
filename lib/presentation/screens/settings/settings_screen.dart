@@ -6,10 +6,14 @@ import 'package:path/path.dart' as p;
 
 import '../../../services/app_state.dart';
 import '../../../services/drive_backup_service.dart';
+import '../../../services/subscription_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/premium_badge.dart';
 import '../../../data/database/database_helper.dart';
+import '../subscription/premium_gate.dart';
+import '../subscription/premium_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -48,6 +52,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _exportBackup() async {
+    if (!SubscriptionService.instance.isPremium && !SubscriptionService.instance.canExportBackup) {
+      if (mounted) PremiumGate.showPremiumDialog(context, 'Exportar Respaldo');
+      return;
+    }
     setState(() => _isExporting = true);
 
     try {
@@ -68,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subject: 'Respaldo ${preferencesService.businessName} - ${Formatters.formatDate(now)}',
           text: 'Respaldo de base de datos ${preferencesService.businessName}',
         );
+        await SubscriptionService.instance.incrementBackupExport();
       }
     } catch (e) {
       if (mounted) {
@@ -196,6 +205,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _connectGoogleDrive() async {
+    if (!SubscriptionService.instance.isPremium) {
+      if (mounted) PremiumGate.showPremiumDialog(context, 'Google Drive Backup');
+      return;
+    }
     setState(() => _isSigningInGoogle = true);
     try {
       final account = await GoogleDriveBackupService.instance.signIn();
@@ -528,9 +541,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           // Drive backup section
-          Text(
-            'Google Drive y Respaldo',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Text(
+                'Google Drive y Respaldo',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              if (!SubscriptionService.instance.isPremium) ...[
+                const PremiumBadge(size: 16),
+                const SizedBox(width: 4),
+                Text('Premium', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
           Card(
@@ -713,6 +736,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Text('Clean Architecture + BLoC + SQLite'),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Premium section
+          Text(
+            'Suscripción',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: SubscriptionService.instance.isPremium
+                  ? const PremiumBadge(size: 24)
+                  : Icon(Icons.workspace_premium_outlined, color: Colors.grey[400]),
+              title: Text(
+                SubscriptionService.instance.isPremium ? 'Cuenta Premium Activa' : 'Actualizar a Premium',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                SubscriptionService.instance.isPremium
+                    ? 'Todas las funciones desbloqueadas'
+                    : 'Desbloquea funciones avanzadas',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PremiumScreen()),
+              ),
             ),
           ),
         ],

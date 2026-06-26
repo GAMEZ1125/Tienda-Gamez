@@ -6,6 +6,8 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_category.dart';
+import '../../../services/subscription_service.dart';
+import '../subscription/premium_gate.dart';
 import 'csv_import_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -110,6 +112,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
               } else if (value == 'purchase_orders') {
                 context.push('/purchase-orders');
               } else if (value == 'movements') {
+                if (!SubscriptionService.instance.isPremium) {
+                  PremiumGate.showPremiumDialog(context, 'Movimientos de Inventario');
+                  return;
+                }
                 context.push('/inventory/movements');
               }
             },

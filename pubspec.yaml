@@ -37,6 +37,7 @@ dependencies:
   printing: ^5.14.3
   table_calendar: ^3.2.0
   archive: ^3.6.1
+  in_app_purchase: ^3.1.0
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,8 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_widget.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../services/pdf_export_service.dart';
+import '../../../services/subscription_service.dart';
+import '../subscription/premium_gate.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -22,6 +24,7 @@ class _StatsScreenState extends State<StatsScreen> {
   double _totalProfit = 0;
   double _totalCogs = 0;
   bool _isLoading = true;
+  bool _isExportingPdf = false;
 
   @override
   void initState() {
@@ -56,6 +59,21 @@ class _StatsScreenState extends State<StatsScreen> {
     });
   }
 
+  Future<void> _exportPdf() async {
+    if (!SubscriptionService.instance.isPremium && !SubscriptionService.instance.canExportPdf) {
+      if (!mounted) return;
+      PremiumGate.showPremiumDialog(context, 'Exportación PDF');
+      return;
+    }
+    setState(() => _isExportingPdf = true);
+    try {
+      await PdfExportService.exportStatsPdf(context);
+      await SubscriptionService.instance.incrementPdfExport();
+    } finally {
+      if (mounted) setState(() => _isExportingPdf = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,9 +81,11 @@ class _StatsScreenState extends State<StatsScreen> {
         title: const Text('Estadísticas'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded),
+            icon: _isExportingPdf
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.picture_as_pdf_rounded),
             tooltip: 'Exportar PDF',
-            onPressed: () => PdfExportService.exportStatsPdf(context),
+            onPressed: _isExportingPdf ? null : _exportPdf,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
