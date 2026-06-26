@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -149,6 +150,26 @@ class _PremiumScreenState extends State<PremiumScreen> {
               ),
           ],
           const SizedBox(height: 24),
+          if (kDebugMode)
+            Card(
+              margin: EdgeInsets.zero,
+              color: Colors.blue.withValues(alpha: 0.05),
+              child: ListTile(
+                leading: const Icon(Icons.bug_report, color: Colors.blue),
+                title: const Text('Debug: Activar Premium', style: TextStyle(fontSize: 14)),
+                subtitle: Text(
+                  isPremium ? 'Premium ACTIVO (debug)' : 'Toca para activar sin pago',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                trailing: Switch(
+                  value: isPremium,
+                  onChanged: (_) async {
+                    await SubscriptionService.instance.toggleDebugPremium();
+                    setState(() {});
+                  },
+                ),
+              ),
+            ),
         ],
       ),
     );

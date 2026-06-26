@@ -25,6 +25,8 @@ class SubscriptionService {
   bool _isPremium = false;
   bool get isPremium => _isPremium;
 
+  bool get isStoreAvailable => _isStoreAvailable;
+
   static const int maxPdfExportsPerMonth = 2;
   static const int maxBackupExportsPerMonth = 2;
 
@@ -51,16 +53,20 @@ class SubscriptionService {
     _isPremium = false;
 
     _isStoreAvailable = await _iap.isAvailable();
-    if (!_isStoreAvailable) return;
 
-    _subscription = _iap.purchaseStream.listen(
-      _onPurchaseUpdate,
-      onDone: () => _subscription?.cancel(),
-      onError: (error) => debugPrint('IAP stream error: $error'),
-    );
+    if (_isStoreAvailable) {
+      _subscription = _iap.purchaseStream.listen(
+        _onPurchaseUpdate,
+        onDone: () => _subscription?.cancel(),
+        onError: (error) => debugPrint('IAP stream error: $error'),
+      );
 
-    await _loadLocalState();
-    await _verifyWithStore();
+      await _loadLocalState();
+      await _verifyWithStore();
+    } else {
+      await _loadLocalState();
+    }
+
     await _loadCounters();
   }
 
@@ -189,7 +195,13 @@ class SubscriptionService {
   }
 
   Future<List<ProductDetails>> getAvailableProducts() async {
-    if (!_isStoreAvailable) return [];
+    if (!_isStoreAvailable) {
+      if (kDebugMode) {
+        _product = _DebugProductDetails();
+        return [_product!];
+      }
+      return [];
+    }
     try {
       final response = await _iap.queryProductDetails({_keyProductId});
       if (response.error != null) {
@@ -207,6 +219,10 @@ class SubscriptionService {
   }
 
   Future<bool> subscribe() async {
+    if (kDebugMode && !_isStoreAvailable) {
+      await _saveLocalState(true, token: 'debug_premium_token');
+      return true;
+    }
     if (!_isStoreAvailable || _product == null) return false;
     try {
       final param = PurchaseParam(productDetails: _product!);
@@ -215,6 +231,14 @@ class SubscriptionService {
     } catch (e) {
       debugPrint('Subscribe error: $e');
       return false;
+    }
+  }
+
+  Future<void> toggleDebugPremium() async {
+    if (kDebugMode) {
+      _isPremium = !_isPremium;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyPremiumStatus, _isPremium);
     }
   }
 
@@ -244,4 +268,16 @@ class SubscriptionService {
   Future<void> checkPremiumStatus() async {
     await _periodicReVerification();
   }
+}
+
+class _DebugProductDetails extends ProductDetails {
+  _DebugProductDetails()
+      : super(
+          id: 'premium_monthly',
+          title: 'Premium Monthly',
+          description: 'Acceso a todas las funciones premium',
+          price: '\$7.000',
+          rawPrice: 7000,
+          currencyCode: 'COP',
+        );
 }
