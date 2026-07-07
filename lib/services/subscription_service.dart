@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/app_constants.dart';
 
 class SubscriptionService {
   SubscriptionService._();
@@ -16,6 +17,7 @@ class SubscriptionService {
   static const _keyBackupExportCount = 'backup_export_count';
   static const _keyBackupExportMonth = 'backup_export_month';
   static const _keyLastVerification = 'last_premium_verification';
+  static const _keySubscriptionExpiry = 'subscription_expiry';
 
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
@@ -50,6 +52,13 @@ class SubscriptionService {
   ProductDetails? get product => _product;
 
   Future<void> init() async {
+    if (!AppConstants.enableSubscriptions) {
+      _isPremium = true;
+      _pdfExportCount = 0;
+      _backupExportCount = 0;
+      return;
+    }
+
     _isPremium = false;
 
     _isStoreAvailable = await _iap.isAvailable();
@@ -86,6 +95,31 @@ class SubscriptionService {
       await prefs.setString(_keyPurchaseToken, token);
     }
     _isPremium = active;
+  }
+
+  Future<void> _saveSubscriptionExpiry(PurchaseDetails purchase) async {
+    final prefs = await SharedPreferences.getInstance();
+    // For Google Play subscriptions, transactionDate contains the purchase time
+    // The actual expiry is managed by Google Play, but we store it for local checks
+    if (purchase.transactionDate != null) {
+      await prefs.setString(_keySubscriptionExpiry, purchase.transactionDate!);
+    }
+  }
+
+  Future<bool> _isSubscriptionExpired() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiryStr = prefs.getString(_keySubscriptionExpiry);
+    if (expiryStr == null) return false;
+
+    try {
+      final purchaseDate = DateTime.parse(expiryStr);
+      // Google Play subscriptions are typically monthly
+      // Add 35 days as safety margin (30 days + 5 days grace)
+      final expiryDate = purchaseDate.add(const Duration(days: 35));
+      return DateTime.now().isAfter(expiryDate);
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> _verifyWithStore() async {
@@ -127,6 +161,15 @@ class SubscriptionService {
 
       if (!found && _isPremium) {
         await _saveLocalState(false);
+      }
+
+      // Check if subscription has expired based on local expiry date
+      if (_isPremium && await _isSubscriptionExpired()) {
+        debugPrint('Subscription expired locally, verifying with store...');
+        // If store verification also fails, revoke premium
+        if (!found) {
+          await _saveLocalState(false);
+        }
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -219,6 +262,11 @@ class SubscriptionService {
   }
 
   Future<bool> subscribe() async {
+    if (!AppConstants.enableSubscriptions) {
+      await _saveLocalState(true, token: 'free_mode');
+      return true;
+    }
+
     if (kDebugMode && !_isStoreAvailable) {
       await _saveLocalState(true, token: 'debug_premium_token');
       return true;
@@ -235,7 +283,7 @@ class SubscriptionService {
   }
 
   Future<void> toggleDebugPremium() async {
-    if (kDebugMode) {
+    if (kDebugMode && AppConstants.enableSubscriptions) {
       _isPremium = !_isPremium;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyPremiumStatus, _isPremium);
@@ -253,10 +301,12 @@ class SubscriptionService {
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         await _saveLocalState(true, token: purchase.purchaseID);
+        await _saveSubscriptionExpiry(purchase);
       } else if (purchase.status == PurchaseStatus.error) {
         debugPrint('Purchase error: ${purchase.error}');
       } else if (purchase.status == PurchaseStatus.canceled) {
-        debugPrint('Purchase canceled');
+        debugPrint('Subscription canceled');
+        await _saveLocalState(false);
       }
 
       if (purchase.pendingCompletePurchase) {
@@ -275,8 +325,8 @@ class _DebugProductDetails extends ProductDetails {
       : super(
           id: 'premium_monthly',
           title: 'Premium Monthly',
-          description: 'Acceso a todas las funciones premium',
-          price: '\$7.000',
+          description: 'Suscripción mensual - Acceso a todas las funciones premium',
+          price: '\$7.000/mes',
           rawPrice: 7000,
           currencyCode: 'COP',
         );

@@ -61,6 +61,7 @@ class DatabaseHelper {
         isActive INTEGER DEFAULT 1,
         taxRate REAL DEFAULT 0.18,
         unitsPerPackage INTEGER DEFAULT 1,
+        allowNegativeStock INTEGER DEFAULT 0,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -450,6 +451,12 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE product_variations ADD COLUMN imagePath TEXT");
       }
     }
+    if (oldVersion < 11) {
+      final prodCols = await db.rawQuery('PRAGMA table_info(products)');
+      if (!prodCols.any((c) => c['name'] == 'allowNegativeStock')) {
+        await db.execute("ALTER TABLE products ADD COLUMN allowNegativeStock INTEGER DEFAULT 0");
+      }
+    }
     if (oldVersion < 10) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS inventory_movements (
@@ -532,14 +539,14 @@ class DatabaseHelper {
 
   static Future<int> insertProduct(Product product) async {
     final db = await database;
-    final result = await db.insert('products', product.toMap());
+    final result = await db.insert('products', await _productMapForDb(db, product));
     RealtimeBackupService.instance.onDatabaseChanged();
     return result;
   }
 
   static Future<int> updateProduct(Product product) async {
     final db = await database;
-    final result = await db.update('products', product.toMap(), where: 'id = ?', whereArgs: [product.id]);
+    final result = await db.update('products', await _productMapForDb(db, product), where: 'id = ?', whereArgs: [product.id]);
     RealtimeBackupService.instance.onDatabaseChanged();
     return result;
   }
@@ -550,9 +557,11 @@ class DatabaseHelper {
   static Future<int> insertProductsBatch(List<Product> products) async {
     final db = await database;
     var count = 0;
+    final columns = await _tableColumns(db, 'products');
     await db.transaction((txn) async {
       for (final product in products) {
-        await txn.insert('products', product.toMap());
+        final map = product.toMap()..removeWhere((key, _) => !columns.contains(key));
+        await txn.insert('products', map);
         count++;
       }
     });
@@ -1668,6 +1677,18 @@ class DatabaseHelper {
       [quantity, DateTime.now().toIso8601String(), id],
     );
     RealtimeBackupService.instance.onDatabaseChanged();
+  }
+
+  static Future<Set<String>> _tableColumns(Database db, String table) async {
+    final rows = await db.rawQuery('PRAGMA table_info($table)');
+    return rows.map((row) => row['name'] as String).toSet();
+  }
+
+  static Future<Map<String, dynamic>> _productMapForDb(Database db, Product product) async {
+    final columns = await _tableColumns(db, 'products');
+    final map = product.toMap();
+    map.removeWhere((key, _) => !columns.contains(key));
+    return map;
   }
 
   /// Deducts stock for a sale item, handling variation conversions.

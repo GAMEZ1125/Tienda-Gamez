@@ -4,8 +4,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/app_state.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/drive_backup_service.dart';
-import '../../../services/subscription_service.dart';
-import '../subscription/premium_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -129,14 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (mounted) {
-        if (!SubscriptionService.instance.isPremium) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PremiumScreen()),
-          ).then((_) => context.go('/home'));
-        } else {
-          context.go('/home');
-        }
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
@@ -276,8 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: 6),
-                          Icon(Icons.workspace_premium_rounded, size: 16, color: Color(0xFFF59E0B)),
                         ],
                       ),
                     ),
@@ -324,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!_isLoading) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Incluye suscripción Premium y respaldo en Drive',
+                    'Usa tu cuenta para respaldos y restauración en Drive',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,

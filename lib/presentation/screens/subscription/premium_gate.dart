@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/premium_badge.dart';
 import '../../../services/subscription_service.dart';
 import 'premium_screen.dart';
@@ -48,6 +49,7 @@ class PremiumGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConstants.enableSubscriptions) return child;
     if (SubscriptionService.instance.isPremium) return child;
 
     return Stack(

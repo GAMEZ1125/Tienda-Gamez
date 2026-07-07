@@ -40,7 +40,7 @@ void main() async {
   // Initialize Google Drive backup session and schedule if available
   await GoogleDriveBackupService.instance.bootstrap();
 
-  // Initialize subscription service (Google Play Billing)
+  // Initialize subscription service or switch to free mode.
   await SubscriptionService.instance.init();
 
   runApp(const TiendaGamezApp());

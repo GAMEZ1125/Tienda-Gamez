@@ -1,10 +1,11 @@
 class AppConstants {
   static const String appName = 'Tienda Gamez';
   static const String appVersion = '1.0.0';
+  static const bool enableSubscriptions = false;
 
   // Database
   static const String databaseName = 'tienda_gamez.db';
-  static const int databaseVersion = 10;
+  static const int databaseVersion = 11;
 
   // Pagination
   static const int pageSize = 20;
