@@ -6,14 +6,10 @@ import 'package:path/path.dart' as p;
 
 import '../../../services/app_state.dart';
 import '../../../services/drive_backup_service.dart';
-import '../../../services/subscription_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/premium_badge.dart';
 import '../../../data/database/database_helper.dart';
-import '../subscription/premium_gate.dart';
-import '../subscription/premium_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,9 +19,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final TextEditingController _businessNameController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _addressController;
+  final _businessNameController = TextEditingController(
+    text: AppConstants.appName,
+  );
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
 
   bool _isExporting = false;
   bool _isImporting = false;
@@ -37,10 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _businessNameController = TextEditingController(text: preferencesService.businessName);
-    _phoneController = TextEditingController(text: preferencesService.businessPhone);
-    _addressController = TextEditingController(text: preferencesService.businessAddress);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _promptGoogleLoginIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _promptGoogleLoginIfNeeded(),
+    );
   }
 
   @override
@@ -52,16 +49,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _exportBackup() async {
-    if (!SubscriptionService.instance.isPremium && !SubscriptionService.instance.canExportBackup) {
-      if (mounted) PremiumGate.showPremiumDialog(context, 'Exportar Respaldo');
-      return;
-    }
     setState(() => _isExporting = true);
 
     try {
       // 1. Generate a descriptive filename with date
       final now = DateTime.now();
-      final filename = 'tienda_gamez_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.db';
+      final filename =
+          'tienda_gamez_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.db';
 
       // 2. Copy the database to a temporary file
       final tempDir = await getTemporaryDirectory();
@@ -73,10 +67,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final xFile = XFile(backupPath);
         await Share.shareXFiles(
           [xFile],
-          subject: 'Respaldo ${preferencesService.businessName} - ${Formatters.formatDate(now)}',
-          text: 'Respaldo de base de datos ${preferencesService.businessName}',
+          subject: 'Respaldo Tienda Gamez - ${Formatters.formatDate(now)}',
+          text: 'Respaldo de base de datos Tienda Gamez',
         );
-        await SubscriptionService.instance.incrementBackupExport();
       }
     } catch (e) {
       if (mounted) {
@@ -168,17 +161,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showInfo(String message, {Color backgroundColor = AppTheme.successColor}) {
+  void _showInfo(
+    String message, {
+    Color backgroundColor = AppTheme.successColor,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor,
-      ),
+      SnackBar(content: Text(message), backgroundColor: backgroundColor),
     );
   }
 
   Future<void> _promptGoogleLoginIfNeeded() async {
-    if (!mounted || _askedForGoogleLogin || preferencesService.googleDriveSignedIn) return;
+    if (!mounted ||
+        _askedForGoogleLogin ||
+        preferencesService.googleDriveSignedIn)
+      return;
     _askedForGoogleLogin = true;
     final connectNow = await showDialog<bool>(
       context: context,
@@ -205,18 +201,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _connectGoogleDrive() async {
-    if (!SubscriptionService.instance.isPremium) {
-      if (mounted) PremiumGate.showPremiumDialog(context, 'Google Drive Backup');
-      return;
-    }
     setState(() => _isSigningInGoogle = true);
     try {
       final account = await GoogleDriveBackupService.instance.signIn();
       if (!mounted) return;
       if (account != null) {
-        _showInfo('Google conectado como ${account.displayName ?? account.email}');
+        _showInfo(
+          'Google conectado como ${account.displayName ?? account.email}',
+        );
       } else {
-        _showInfo('No se pudo conectar con Google', backgroundColor: AppTheme.warningColor);
+        _showInfo(
+          'No se pudo conectar con Google',
+          backgroundColor: AppTheme.warningColor,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -298,7 +295,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _isRestoringDriveBackup = true);
     try {
-      final message = await GoogleDriveBackupService.instance.restoreLatestBackup();
+      final message = await GoogleDriveBackupService.instance
+          .restoreLatestBackup();
       if (!mounted) return;
       if (message != null) {
         _showInfo(message);
@@ -323,7 +321,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() {});
         _showInfo(
-          value ? 'Respaldo automático activado' : 'Respaldo automático desactivado',
+          value
+              ? 'Respaldo automático activado'
+              : 'Respaldo automático desactivado',
         );
       }
     } catch (e) {
@@ -405,13 +405,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Configuración'),
         actions: [
           IconButton(
-            tooltip: preferencesService.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+            tooltip: preferencesService.isDarkMode
+                ? 'Cambiar a modo claro'
+                : 'Cambiar a modo oscuro',
             onPressed: () async {
               await preferencesService.toggleTheme();
               if (mounted) setState(() {});
             },
             icon: Icon(
-              preferencesService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              preferencesService.isDarkMode
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
               color: Colors.white,
             ),
           ),
@@ -423,7 +427,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Business info section
           Text(
             'Datos del Negocio',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Card(
@@ -457,32 +463,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.brandRed,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () async {
-                          await preferencesService.setBusinessData(
-                            name: _businessNameController.text.trim(),
-                            phone: _phoneController.text.trim(),
-                            address: _addressController.text.trim(),
-                          );
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Configuración guardada'),
-                                backgroundColor: AppTheme.successColor,
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Guardar Configuración'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Configuración guardada'),
+                            backgroundColor: AppTheme.successColor,
+                          ),
+                        );
+                      },
+                      child: const Text('Guardar Configuración'),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -492,7 +491,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Appearance section
           Text(
             'Apariencia',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Card(
@@ -516,9 +517,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? AppTheme.brandRed.withValues(alpha: 0.15)
                       : AppTheme.warningColor.withValues(alpha: 0.15),
                   child: Icon(
-                    preferencesService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                    preferencesService.isDarkMode
+                        ? Icons.dark_mode
+                        : Icons.light_mode,
                     size: 18,
-                    color: preferencesService.isDarkMode ? AppTheme.brandRed : AppTheme.warningColor,
+                    color: preferencesService.isDarkMode
+                        ? AppTheme.brandRed
+                        : AppTheme.warningColor,
                   ),
                 ),
                 title: const Text(
@@ -541,19 +546,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           // Drive backup section
-          Row(
-            children: [
-              Text(
-                'Google Drive y Respaldo',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 8),
-              if (!SubscriptionService.instance.isPremium) ...[
-                const PremiumBadge(size: 16),
-                const SizedBox(width: 4),
-                Text('Premium', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-              ],
-            ],
+          Text(
+            'Google Drive y Respaldo',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Card(
@@ -566,7 +563,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? AppTheme.successColor.withValues(alpha: 0.15)
                         : AppTheme.warningColor.withValues(alpha: 0.15),
                     child: Icon(
-                      preferencesService.googleDriveSignedIn ? Icons.cloud_done : Icons.cloud_upload,
+                      preferencesService.googleDriveSignedIn
+                          ? Icons.cloud_done
+                          : Icons.cloud_upload,
                       color: preferencesService.googleDriveSignedIn
                           ? AppTheme.successColor
                           : AppTheme.warningColor,
@@ -588,8 +587,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Subir backup automáticamente, diariamente'),
-                    subtitle: const Text('Se ejecuta cuando la app tenga acceso a Google Drive'),
+                    title: const Text(
+                      'Subir backup automáticamente, diariamente',
+                    ),
+                    subtitle: const Text(
+                      'Se ejecuta cuando la app tenga acceso a Google Drive',
+                    ),
                     value: preferencesService.autoDriveBackupEnabled,
                     onChanged: _toggleAutoDriveBackup,
                     activeColor: AppTheme.brandRed,
@@ -607,13 +610,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onPressed: _isSigningInGoogle
                               ? null
                               : (preferencesService.googleDriveSignedIn
-                                  ? _disconnectGoogleDrive
-                                  : _connectGoogleDrive),
+                                    ? _disconnectGoogleDrive
+                                    : _connectGoogleDrive),
                           icon: _isSigningInGoogle
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Icon(
                                   preferencesService.googleDriveSignedIn
@@ -621,21 +626,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       : Icons.login,
                                 ),
                           label: Text(
-                            preferencesService.googleDriveSignedIn ? 'Cerrar sesión' : 'Conectar Google',
+                            preferencesService.googleDriveSignedIn
+                                ? 'Cerrar sesión'
+                                : 'Conectar Google',
                           ),
                         ),
                       ),
                       SizedBox(
                         width: 180,
                         child: OutlinedButton.icon(
-                          onPressed: preferencesService.googleDriveSignedIn && !_isUploadingDriveBackup
+                          onPressed:
+                              preferencesService.googleDriveSignedIn &&
+                                  !_isUploadingDriveBackup
                               ? _uploadDriveBackup
                               : null,
                           icon: _isUploadingDriveBackup
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.backup),
                           label: const Text('Subir backup a Drive'),
@@ -644,14 +655,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SizedBox(
                         width: 180,
                         child: OutlinedButton.icon(
-                          onPressed: preferencesService.googleDriveSignedIn && !_isRestoringDriveBackup
+                          onPressed:
+                              preferencesService.googleDriveSignedIn &&
+                                  !_isRestoringDriveBackup
                               ? _restoreDriveBackup
                               : null,
                           icon: _isRestoringDriveBackup
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.restore),
                           label: const Text('Restaurar Drive'),
@@ -668,7 +683,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Local backup section
           Text(
             'Respaldo Local y Restauración',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Card(
@@ -698,7 +715,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         )
                       : const Icon(Icons.restore, color: AppTheme.warningColor),
                   title: const Text('Restaurar Base de Datos'),
-                  subtitle: const Text('Recuperar datos desde un respaldo (.db)'),
+                  subtitle: const Text(
+                    'Recuperar datos desde un respaldo (.db)',
+                  ),
                   enabled: !_isExporting && !_isImporting,
                   onTap: _isImporting ? null : _importBackup,
                 ),
@@ -717,7 +736,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // App info
           Text(
             'Acerca de',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Card(
@@ -726,46 +747,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 ListTile(
                   leading: Icon(Icons.store, color: AppTheme.primaryColor),
-                  title: Text(preferencesService.businessName),
+                  title: Text('Tienda Gamez'),
                   subtitle: Text('Versión 1.0.0'),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: Icon(Icons.code, color: AppTheme.primaryColor),
-                  title: Text('Desarrollado con Flutter'),
-                  subtitle: Text('Clean Architecture + BLoC + SQLite'),
+                  title: Text('Desarrollado por Gamez Code Solutions'),
+                  // subtitle: Text('Clean Architecture + BLoC + SQLite'),
+                  subtitle: Text('https://gamezsolutions.online'),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Premium section
-          Text(
-            'Suscripción',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            margin: EdgeInsets.zero,
-            child: ListTile(
-              leading: SubscriptionService.instance.isPremium
-                  ? const PremiumBadge(size: 24)
-                  : Icon(Icons.workspace_premium_outlined, color: Colors.grey[400]),
-              title: Text(
-                SubscriptionService.instance.isPremium ? 'Cuenta Premium Activa' : 'Actualizar a Premium',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                SubscriptionService.instance.isPremium
-                    ? 'Todas las funciones desbloqueadas'
-                    : 'Desbloquea funciones avanzadas',
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PremiumScreen()),
-              ),
             ),
           ),
         ],
