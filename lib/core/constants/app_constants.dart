@@ -1,6 +1,7 @@
 class AppConstants {
   static const String appName = 'Tienda Gamez';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
+  static const String appBuildNumber = String.fromEnvironment('APP_BUILD_NUMBER', defaultValue: '1');
   static const bool enableSubscriptions = false;
 
   // Database

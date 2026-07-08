@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/app_state.dart';
-import 'services/subscription_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'presentation/navigation/app_router.dart';
@@ -39,9 +38,6 @@ void main() async {
 
   // Initialize Google Drive backup session and schedule if available
   await GoogleDriveBackupService.instance.bootstrap();
-
-  // Initialize subscription service or switch to free mode.
-  await SubscriptionService.instance.init();
 
   runApp(const TiendaGamezApp());
 }

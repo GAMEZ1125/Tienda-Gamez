@@ -9,7 +9,6 @@ import '../../../data/database/database_helper.dart';
 import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_category.dart';
 import '../../../domain/entities/product_variation.dart';
-import '../subscription/premium_gate.dart';
 import '../scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -489,10 +488,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         ),
       ),
     );
-    return PremiumGate(
-      featureName: 'Variaciones / Presentaciones',
-      child: content,
-    );
+    return content;
   }
 
   Widget _buildVariationTile(ProductVariation variation) {

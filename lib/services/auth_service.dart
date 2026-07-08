@@ -27,12 +27,7 @@ class AuthService {
   }
 
   Future<GoogleSignInAccount?> signInWithGoogle() async {
-    try {
-      return await _googleSignIn.signIn();
-    } catch (error) {
-      debugPrint('Error al iniciar sesión con Google: $error');
-      return null;
-    }
+    return await _googleSignIn.signIn();
   }
 
   Future<void> signOut() async {

@@ -5,8 +5,6 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_widget.dart';
 import '../../../data/database/database_helper.dart';
 import '../../../services/pdf_export_service.dart';
-import '../../../services/subscription_service.dart';
-import '../subscription/premium_gate.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -60,15 +58,9 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _exportPdf() async {
-    if (!SubscriptionService.instance.isPremium && !SubscriptionService.instance.canExportPdf) {
-      if (!mounted) return;
-      PremiumGate.showPremiumDialog(context, 'Exportación PDF');
-      return;
-    }
     setState(() => _isExportingPdf = true);
     try {
       await PdfExportService.exportStatsPdf(context);
-      await SubscriptionService.instance.incrementPdfExport();
     } finally {
       if (mounted) setState(() => _isExportingPdf = false);
     }

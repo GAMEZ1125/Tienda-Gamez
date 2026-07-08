@@ -17,6 +17,11 @@ class PreferencesService extends ChangeNotifier {
   static const _keyBusinessName = 'business_name';
   static const _keyBusinessPhone = 'business_phone';
   static const _keyBusinessAddress = 'business_address';
+  static const _keyDataSafetyCsvName = 'data_safety_csv_name';
+  static const _keyDataSafetyCsvPath = 'data_safety_csv_path';
+  static const _keyDataSafetyCsvRows = 'data_safety_csv_rows';
+  static const _keyDataSafetyImportedAt = 'data_safety_imported_at';
+  static const _keyDataSafetyCsvJson = 'data_safety_csv_json';
 
   bool _isDarkMode = false;
   bool _googleDriveSignedIn = false;
@@ -30,6 +35,11 @@ class PreferencesService extends ChangeNotifier {
   String _businessName = 'Tienda Gamez';
   String _businessPhone = '';
   String _businessAddress = '';
+  String? _dataSafetyCsvName;
+  String? _dataSafetyCsvPath;
+  int _dataSafetyCsvRows = 0;
+  DateTime? _dataSafetyImportedAt;
+  String? _dataSafetyCsvJson;
 
   bool get isDarkMode => _isDarkMode;
   bool get googleDriveSignedIn => _googleDriveSignedIn;
@@ -43,6 +53,11 @@ class PreferencesService extends ChangeNotifier {
   String get businessName => _businessName;
   String get businessPhone => _businessPhone;
   String get businessAddress => _businessAddress;
+  String? get dataSafetyCsvName => _dataSafetyCsvName;
+  String? get dataSafetyCsvPath => _dataSafetyCsvPath;
+  int get dataSafetyCsvRows => _dataSafetyCsvRows;
+  DateTime? get dataSafetyImportedAt => _dataSafetyImportedAt;
+  String? get dataSafetyCsvJson => _dataSafetyCsvJson;
 
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
@@ -64,6 +79,14 @@ class PreferencesService extends ChangeNotifier {
     _businessName = prefs.getString(_keyBusinessName) ?? 'Tienda Gamez';
     _businessPhone = prefs.getString(_keyBusinessPhone) ?? '';
     _businessAddress = prefs.getString(_keyBusinessAddress) ?? '';
+    _dataSafetyCsvName = prefs.getString(_keyDataSafetyCsvName);
+    _dataSafetyCsvPath = prefs.getString(_keyDataSafetyCsvPath);
+    _dataSafetyCsvRows = prefs.getInt(_keyDataSafetyCsvRows) ?? 0;
+    final dataSafetyImportedAtIso = prefs.getString(_keyDataSafetyImportedAt);
+    _dataSafetyImportedAt = dataSafetyImportedAtIso != null
+        ? DateTime.tryParse(dataSafetyImportedAtIso)
+        : null;
+    _dataSafetyCsvJson = prefs.getString(_keyDataSafetyCsvJson);
     notifyListeners();
   }
 
@@ -179,6 +202,49 @@ class PreferencesService extends ChangeNotifier {
     await prefs.setString(_keyBusinessName, name);
     await prefs.setString(_keyBusinessPhone, phone);
     await prefs.setString(_keyBusinessAddress, address);
+    notifyListeners();
+  }
+
+  Future<void> setDataSafetyCsv({
+    required String name,
+    required String path,
+    required int rows,
+    String? json,
+    DateTime? importedAt,
+  }) async {
+    _dataSafetyCsvName = name;
+    _dataSafetyCsvPath = path;
+    _dataSafetyCsvRows = rows;
+    _dataSafetyImportedAt = importedAt ?? DateTime.now();
+    _dataSafetyCsvJson = json;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyDataSafetyCsvName, name);
+    await prefs.setString(_keyDataSafetyCsvPath, path);
+    await prefs.setInt(_keyDataSafetyCsvRows, rows);
+    await prefs.setString(
+      _keyDataSafetyImportedAt,
+      _dataSafetyImportedAt!.toIso8601String(),
+    );
+    if (json == null || json.isEmpty) {
+      await prefs.remove(_keyDataSafetyCsvJson);
+    } else {
+      await prefs.setString(_keyDataSafetyCsvJson, json);
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearDataSafetyCsv() async {
+    _dataSafetyCsvName = null;
+    _dataSafetyCsvPath = null;
+    _dataSafetyCsvRows = 0;
+    _dataSafetyImportedAt = null;
+    _dataSafetyCsvJson = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyDataSafetyCsvName);
+    await prefs.remove(_keyDataSafetyCsvPath);
+    await prefs.remove(_keyDataSafetyCsvRows);
+    await prefs.remove(_keyDataSafetyImportedAt);
+    await prefs.remove(_keyDataSafetyCsvJson);
     notifyListeners();
   }
 }

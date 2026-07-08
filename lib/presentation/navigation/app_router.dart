@@ -27,7 +27,6 @@ import '../screens/categories/categories_screen.dart';
 import '../screens/categories/category_form_screen.dart';
 import '../screens/purchase_orders/purchase_orders_screen.dart';
 import '../screens/purchase_orders/purchase_order_form_screen.dart';
-import '../screens/subscription/premium_screen.dart';
 import '../../services/app_state.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -228,10 +227,6 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/settings',
           pageBuilder: (context, state) => _buildPageWithTransition(context, state, const SettingsScreen()),
-        ),
-        GoRoute(
-          path: '/subscription',
-          pageBuilder: (context, state) => _buildPageWithTransition(context, state, const PremiumScreen()),
         ),
       ],
     ),

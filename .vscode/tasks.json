@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "flutter: build apk release",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "apk",
+        "--release",
+        "--build-name=${input:appVersion}",
+        "--build-number=${input:buildNumber}",
+        "--dart-define=APP_VERSION=${input:appVersion}",
+        "--dart-define=APP_BUILD_NUMBER=${input:buildNumber}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "flutter: run debug",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "run",
+        "-d",
+        "${input:deviceId}"
+      ],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "deviceId",
+      "type": "promptString",
+      "description": "Device ID for flutter run",
+      "default": "8PAAVWL78HTGUCOZ"
+    },
+    {
+      "id": "appVersion",
+      "type": "promptString",
+      "description": "APK version name (build-name)",
+      "default": "1.0.0"
+    },
+    {
+      "id": "buildNumber",
+      "type": "promptString",
+      "description": "APK version code (build-number)",
+      "default": "1"
+    }
+  ]
+}

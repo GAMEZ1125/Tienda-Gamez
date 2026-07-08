@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../data/services/play_console_data_safety_service.dart';
 import '../../../services/app_state.dart';
 import '../../../services/drive_backup_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -30,7 +32,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSigningInGoogle = false;
   bool _isUploadingDriveBackup = false;
   bool _isRestoringDriveBackup = false;
+  bool _isImportingDataSafety = false;
   bool _askedForGoogleLogin = false;
+  final _dataSafetyService = const PlayConsoleDataSafetyService();
 
   @override
   void initState() {
@@ -173,8 +177,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _promptGoogleLoginIfNeeded() async {
     if (!mounted ||
         _askedForGoogleLogin ||
-        preferencesService.googleDriveSignedIn)
+        preferencesService.googleDriveSignedIn) {
       return;
+    }
     _askedForGoogleLogin = true;
     final connectNow = await showDialog<bool>(
       context: context,
@@ -382,6 +387,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (_) {
       // ignore
+    }
+  }
+
+  Future<void> _importDataSafetyCsv() async {
+    setState(() => _isImportingDataSafety = true);
+
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: false,
+        withReadStream: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = result.files.single;
+      final sourcePath = file.path;
+      if (sourcePath == null) {
+        if (mounted) {
+          _showError('No se pudo leer el archivo', 'Selecciona un CSV válido');
+        }
+        return;
+      }
+
+      final parsed = await _dataSafetyService.parseFile(sourcePath);
+      if (parsed.rows.isEmpty) {
+        if (mounted) {
+          _showError('CSV vacío', 'El archivo no contiene filas válidas');
+        }
+        return;
+      }
+
+      final sourceFile = File(sourcePath);
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final safetyDir = Directory(p.join(appDir.path, 'data_safety'));
+      if (!await safetyDir.exists()) {
+        await safetyDir.create(recursive: true);
+      }
+
+      final destinationPath = p.join(safetyDir.path, file.name);
+      await sourceFile.copy(destinationPath);
+
+      await preferencesService.setDataSafetyCsv(
+        name: file.name,
+        path: destinationPath,
+        rows: parsed.rows.length,
+        json: parsed.toJsonString(),
+      );
+
+      if (mounted) {
+        _showInfo('CSV de Seguridad de los datos importado (${parsed.rows.length} respuestas)');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al importar CSV', e);
+      }
+    } finally {
+      if (mounted) setState(() => _isImportingDataSafety = false);
+    }
+  }
+
+  Future<void> _clearDataSafetyCsv() async {
+    await preferencesService.clearDataSafetyCsv();
+    if (mounted) {
+      _showInfo('CSV de Seguridad de los datos eliminado');
     }
   }
 
@@ -733,6 +807,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Data safety section
+          Text(
+            'Seguridad de los datos',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppTheme.brandRed.withValues(alpha: 0.12),
+                    child: const Icon(Icons.verified_user_outlined, color: AppTheme.brandRed),
+                  ),
+                  title: const Text('Importar CSV de Play Console'),
+                  subtitle: Text(
+                    preferencesService.dataSafetyCsvName != null
+                        ? '${preferencesService.dataSafetyCsvName}\n${preferencesService.dataSafetyCsvRows} filas importadas${preferencesService.dataSafetyImportedAt != null ? '\nActualizado: ${Formatters.formatDateTime(preferencesService.dataSafetyImportedAt!)}' : ''}'
+                        : 'Carga aquí el CSV exportado de la sección Seguridad de los datos de Google Play Console.',
+                  ),
+                  isThreeLine: preferencesService.dataSafetyCsvName != null,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: 180,
+                        child: FilledButton.icon(
+                          onPressed: _isImportingDataSafety ? null : _importDataSafetyCsv,
+                          icon: _isImportingDataSafety
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.upload_file),
+                          label: const Text('Importar CSV'),
+                        ),
+                      ),
+                      if (preferencesService.dataSafetyCsvName != null)
+                        SizedBox(
+                          width: 180,
+                          child: OutlinedButton.icon(
+                            onPressed: _clearDataSafetyCsv,
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Eliminar registro'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // App info
           Text(
             'Acerca de',
@@ -748,7 +884,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: Icon(Icons.store, color: AppTheme.primaryColor),
                   title: Text('Tienda Gamez'),
-                  subtitle: Text('Versión 1.0.0'),
+                  subtitle: Text('Versión ${AppConstants.appVersion}+${AppConstants.appBuildNumber}'),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(

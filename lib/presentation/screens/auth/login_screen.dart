@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Error al iniciar sesión: $e';
+          _error = 'Error al iniciar sesión con Google: $e';
         });
       }
     }
