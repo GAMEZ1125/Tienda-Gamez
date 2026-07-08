@@ -1,160 +1,398 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Política de Privacidad - Tienda Gamez</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background: white;
-            min-height: 100vh;
-        }
-        h1 {
-            color: #1a1a2e;
-            font-size: 2rem;
-            margin-bottom: 10px;
-            border-bottom: 3px solid #e94560;
-            padding-bottom: 10px;
-        }
-        .last-updated {
-            color: #666;
-            font-style: italic;
-            margin-bottom: 30px;
-        }
-        h2 {
-            color: #1a1a2e;
-            font-size: 1.3rem;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #eee;
-        }
-        p { margin-bottom: 15px; }
-        ul, ol {
-            margin-left: 25px;
-            margin-bottom: 15px;
-        }
-        li { margin-bottom: 8px; }
-        .highlight {
-            background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #ffc107;
-            margin: 20px 0;
-        }
-        .contact {
-            background-color: #e8f4fd;
-            padding: 20px;
-            border-radius: 5px;
-            margin-top: 30px;
-        }
-        a { color: #e94560; }
-        a:hover { text-decoration: underline; }
-        @media (max-width: 600px) {
-            .container { padding: 20px 15px; }
-            h1 { font-size: 1.5rem; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index,follow" />
+  <meta
+    name="description"
+    content="Política de Privacidad de Tienda Gamez. Información sobre datos locales, Google Sign-In y copias de seguridad en Google Drive."
+  />
+  <title>Política de Privacidad - Tienda Gamez</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #5b6472;
+      --border: #e5e7eb;
+      --accent: #1d4ed8;
+      --accent-2: #0f766e;
+      --soft: #eff6ff;
+      --soft-2: #ecfeff;
+      --warning: #fef3c7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.65;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 22%),
+        var(--bg);
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 18px 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #111827 55%, #1d4ed8 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 12px;
+    }
+
+    .eyebrow span {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.9rem, 3vw, 3rem);
+      line-height: 1.15;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 72ch;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .meta-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 14px 16px;
+      backdrop-filter: blur(8px);
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 6px;
+    }
+
+    .meta-value {
+      font-weight: 600;
+    }
+
+    .content {
+      margin-top: 22px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px 22px;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+    }
+
+    .notice {
+      background: var(--warning);
+      border-left: 5px solid #f59e0b;
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 24px;
+    }
+
+    .notice strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 1.25rem;
+      line-height: 1.3;
+      color: #0f172a;
+    }
+
+    h3 {
+      margin: 18px 0 10px;
+      font-size: 1.03rem;
+      color: #111827;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul {
+      margin: 0 0 16px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .callout {
+      background: var(--soft);
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+
+    .callout.alt {
+      background: var(--soft-2);
+      border-color: #99f6e4;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 14px 0 18px;
+    }
+
+    .box {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    .box strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .contact {
+      background: linear-gradient(135deg, rgba(29, 78, 216, 0.08), rgba(15, 118, 110, 0.08));
+      border: 1px solid rgba(29, 78, 216, 0.18);
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-word;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .anchor {
+      scroll-margin-top: 24px;
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 16px 12px 36px;
+      }
+
+      .hero,
+      .content {
+        border-radius: 18px;
+        padding: 20px 16px;
+      }
+
+      .meta,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Política de Privacidad de Tienda Gamez</h1>
-        <p class="last-updated">Última actualización: 2 de julio de 2026</p>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow"><span></span> Política pública para Google Play Console</div>
+      <h1>Política de Privacidad de Tienda Gamez</h1>
+      <p>
+        Esta página explica qué datos utiliza la app, para qué los usa, cómo se almacenan y qué opciones tiene el usuario
+        para eliminarlos o revocar accesos. La app se distribuye sin suscripción y sin funciones premium restringidas.
+      </p>
 
-        <p>En Tienda Gamez, valoramos y protegemos la privacidad de nuestros usuarios. Esta Política de Privacidad describe cómo recopilamos, usamos y protegemos su información cuando utiliza nuestra aplicación móvil.</p>
-
-        <h2>1. Información que Recopilamos</h2>
-        <p>Recopilamos únicamente la información necesaria para el funcionamiento de la aplicación:</p>
-        
-        <h3>1.1 Datos Almacenados Localmente</h3>
-        <ul>
-            <li><strong>Datos de la tienda:</strong> Productos, precios, inventario, ventas, gastos, clientes y proveedores</li>
-            <li><strong>Transacciones:</strong> Registros de ventas, pagos y deudas</li>
-            <li><strong>Configuraciones:</strong> Preferencias de la aplicación (modo oscuro, moneda, etc.)</li>
-        </ul>
-        <p><em>Nota: Todos estos datos se almacenan exclusivamente en su dispositivo y no se envían a ningún servidor externo a menos que usted active la función de backup.</em></p>
-
-        <h3>1.2 Información de Cuenta de Google (Opcional)</h3>
-        <ul>
-            <li><strong>Nombre:</strong> Su nombre de perfil de Google</li>
-            <li><strong>Correo electrónico:</strong> Su dirección de correo electrónico de Google</li>
-        </ul>
-        <p><em>Esta información solo se recopila si usted decide iniciar sesión con Google para usar la función de backup en Google Drive.</em></p>
-
-        <h3>1.3 Datos de Suscripción</h3>
-        <ul>
-            <li><strong>Estado de suscripción:</strong> Para verificar su acceso premium</li>
-            <li><strong>Token de compra:</strong> Para validar transacciones con Google Play</li>
-        </ul>
-
-        <h2>2. Cómo Usamos su Información</h2>
-        <ul>
-            <li><strong>Datos locales:</strong> Se utilizan exclusivamente para el funcionamiento de la aplicación en su dispositivo</li>
-            <li><strong>Google Drive:</strong> Se utiliza para realizar copias de seguridad automáticas de sus datos (solo si usted lo habilita)</li>
-            <li><strong>Datos de suscripción:</strong> Se utilizan para verificar y mantener su estado de suscripción premium</li>
-        </ul>
-
-        <h2>3. Compartición de Datos</h2>
-        <p>Compartimos información únicamente con los siguientes servicios:</p>
-        <ul>
-            <li><strong>Google LLC:</strong> Para autenticación y almacenamiento en Google Drive</li>
-            <li><strong>Google Play:</strong> Para procesamiento de pagos y gestión de suscripciones</li>
-        </ul>
-        
-        <div class="highlight">
-            <strong>No vendemos ni compartimos sus datos con terceros para fines publicitarios o de marketing.</strong>
+      <div class="meta">
+        <div class="meta-card">
+          <span class="meta-label">Última actualización</span>
+          <div class="meta-value">7 de julio de 2026</div>
         </div>
-
-        <h2>4. Seguridad de los Datos</h2>
-        <ul>
-            <li>Todas las comunicaciones con servidores de Google utilizan cifrado HTTPS</li>
-            <li>Los datos locales se almacenan en SQLite en su dispositivo</li>
-            <li>Las copias de seguridad en Google Drive se cifran durante la transferencia</li>
-            <li>No tenemos acceso a sus datos locales ni a su cuenta de Google</li>
-        </ul>
-
-        <h2>5. Retención de Datos</h2>
-        <ul>
-            <li><strong>Datos locales:</strong> Se mantienen en su dispositivo mientras la aplicación esté instalada</li>
-            <li><strong>Copias de seguridad:</strong> Se mantienen en su Google Drive hasta que usted las elimine</li>
-            <li><strong>Datos de suscripción:</strong> Se mantienen mientras su suscripción esté activa</li>
-        </ul>
-
-        <h2>6. Sus Derechos</h2>
-        <p>Usted tiene derecho a:</p>
-        <ul>
-            <li><strong>Eliminar datos locales:</strong> Puede eliminar todos los datos de la app desde la configuración</li>
-            <li><strong>Cerrar sesión de Google:</strong> Puede cerrar sesión en cualquier momento para detener los backups automáticos</li>
-            <li><strong>Cancelar suscripción:</strong> Puede cancelar su suscripción premium desde Google Play</li>
-            <li><strong>Eliminar backups:</strong> Puede eliminar las copias de seguridad desde Google Drive</li>
-            <li><strong>Solicitar información:</strong> Puede solicitar información sobre los datos que tenemos de usted</li>
-        </ul>
-
-        <h2>7. Privacidad de los Niños</h2>
-        <p>Nuestra aplicación no está dirigida a niños menores de 13 años. No recopilamos conscientemente información personal de niños.</p>
-
-        <h2>8. Cambios en esta Política</h2>
-        <p>Podemos actualizar esta política de privacidad periodicamente. Los cambios se publicarán en esta página con la fecha de "Última actualización" actualizada.</p>
-
-        <h2>9. Contacto</h2>
-        <div class="contact">
-            <p>Si tiene preguntas, inquietudes o solicitudes relacionadas con esta política de privacidad, por favor contáctenos:</p>
-            <p><strong>Correo electrónico:</strong> <a href="mailto:soporte@tiendagamez.com">soporte@tiendagamez.com</a></p>
-            <p><em>Responderemos a su consulta dentro de 48 horas hábiles.</em></p>
+        <div class="meta-card">
+          <span class="meta-label">Aplicación</span>
+          <div class="meta-value">Tienda Gamez</div>
         </div>
+        <div class="meta-card">
+          <span class="meta-label">Alcance</span>
+          <div class="meta-value">Android / Google Play</div>
+        </div>
+      </div>
+    </section>
 
-        <h2>10. Aceptación de esta Política</h2>
-        <p>Al utilizar Tienda Gamez, usted acepta esta Política de Privacidad. Si no está de acuerdo con esta política, por favor no utilice nuestra aplicación.</p>
-    </div>
+    <section class="content">
+      <div class="notice">
+        <strong>Importante</strong>
+        La app no utiliza suscripción, no vende datos personales y no muestra publicidad. La autenticación con Google es
+        opcional y solo se usa para iniciar sesión y habilitar funciones relacionadas con respaldo.
+      </div>
+
+      <h2 class="anchor">1. Responsable de la información</h2>
+      <p>
+        Tienda Gamez es una aplicación de gestión de inventario y ventas. Si tienes dudas sobre esta política o deseas
+        ejercer tus derechos de eliminación o acceso, puedes contactarnos en el correo indicado al final de este documento.
+      </p>
+
+      <h2 class="anchor">2. Datos que recopilamos o procesamos</h2>
+      <div class="grid">
+        <div class="box">
+          <strong>Datos almacenados localmente</strong>
+          Productos, categorías, precios, costos, inventario, ventas, gastos, clientes, proveedores, deuda, ajustes de la
+          app y otros registros operativos creados por el usuario.
+        </div>
+        <div class="box">
+          <strong>Cuenta de Google opcional</strong>
+          Nombre, correo electrónico y datos de perfil necesarios para el inicio de sesión con Google.
+        </div>
+        <div class="box">
+          <strong>Copias de seguridad</strong>
+          Archivos o contenido de respaldo que el usuario genere y autorice almacenar en Google Drive.
+        </div>
+        <div class="box">
+          <strong>Datos de soporte</strong>
+          Información que el usuario envíe voluntariamente al solicitar ayuda técnica o reportar un problema.
+        </div>
+      </div>
+
+      <div class="callout alt">
+        <strong>No recopilamos</strong>
+        Datos de suscripción, pagos recurrentes, publicidad personalizada ni analíticas de comportamiento para marketing.
+      </div>
+
+      <h2 class="anchor">3. Cómo usamos los datos</h2>
+      <ul>
+        <li>Permitir el funcionamiento principal de la app en el dispositivo.</li>
+        <li>Autenticar el acceso con Google cuando el usuario decide iniciar sesión.</li>
+        <li>Generar, restaurar y administrar copias de seguridad en Google Drive cuando el usuario lo autoriza.</li>
+        <li>Responder solicitudes de soporte, recuperación o eliminación de datos.</li>
+        <li>Cumplir obligaciones legales o de seguridad si fuera necesario.</li>
+      </ul>
+
+      <h2 class="anchor">4. Servicios de terceros</h2>
+      <p>La app puede usar servicios de Google para las siguientes funciones:</p>
+      <ul>
+        <li><strong>Google Sign-In:</strong> autenticación del usuario.</li>
+        <li><strong>Google Drive:</strong> almacenamiento de respaldos cuando el usuario activa esa función.</li>
+        <li><strong>Google Play services:</strong> componentes de soporte de Android relacionados con la cuenta.</li>
+      </ul>
+      <p>
+        Estos servicios están sujetos a sus propias políticas. Tienda Gamez no controla la infraestructura de Google,
+        pero solo solicita los permisos necesarios para estas funciones.
+      </p>
+
+      <h2 class="anchor">5. Compartición de información</h2>
+      <p>No vendemos ni alquilamos información personal.</p>
+      <ul>
+        <li>Solo compartimos datos con Google cuando el usuario decide iniciar sesión o crear un respaldo.</li>
+        <li>No compartimos datos con anunciantes ni con redes de marketing.</li>
+        <li>No enviamos información local a servidores externos salvo que el usuario active funciones de sincronización o respaldo.</li>
+      </ul>
+
+      <h2 class="anchor">6. Almacenamiento y retención</h2>
+      <ul>
+        <li><strong>Datos locales:</strong> permanecen en el dispositivo mientras la app esté instalada o hasta que el usuario los elimine.</li>
+        <li><strong>Respaldo en Google Drive:</strong> permanece en la cuenta del usuario hasta que se elimine manualmente o se revoque el acceso.</li>
+        <li><strong>Datos de autenticación:</strong> se usan solo mientras el usuario mantenga la sesión activa o autorice el acceso.</li>
+      </ul>
+
+      <h2 class="anchor">7. Seguridad</h2>
+      <p>
+        Tomamos medidas razonables para proteger la información procesada por la app. Entre ellas:
+      </p>
+      <ul>
+        <li>Almacenamiento local en la base de datos del dispositivo.</li>
+        <li>Uso de conexiones seguras para servicios en línea compatibles con Google.</li>
+        <li>Acceso limitado a los servicios de Google que el usuario autoriza explícitamente.</li>
+      </ul>
+      <p>
+        Ningún método de transmisión o almacenamiento es completamente infalible, pero trabajamos para reducir riesgos y
+        evitar accesos no autorizados.
+      </p>
+
+      <h2 class="anchor">8. Cuenta, acceso y eliminación de datos</h2>
+      <p>
+        Si quieres eliminar tu acceso o los datos asociados a Google, puedes:
+      </p>
+      <ul>
+        <li>Eliminar los datos locales desde la propia app o desinstalarla.</li>
+        <li>Revocar el acceso de la app desde tu cuenta de Google.</li>
+        <li>Eliminar manualmente las copias de seguridad guardadas en Google Drive.</li>
+        <li>Escribirnos para solicitar ayuda con la eliminación de información vinculada a tu uso de la app.</li>
+      </ul>
+      <p>
+        Si Play Console te solicita una URL específica de eliminación de cuenta, esta página puede servir como punto de
+        referencia mientras añades una sección dedicada o una página separada si la necesitas.
+      </p>
+
+      <h2 class="anchor">9. Privacidad de menores</h2>
+      <p>
+        La app no está dirigida a menores de edad. No recopilamos deliberadamente información de niños. Si consideras que
+        un menor nos proporcionó datos, contáctanos para revisar su eliminación.
+      </p>
+
+      <h2 class="anchor">10. Cambios en esta política</h2>
+      <p>
+        Podemos actualizar este documento si cambian las funciones de la app, los servicios usados o los requisitos de
+        Google Play. Publicaremos la versión revisada en esta misma URL con una nueva fecha de actualización.
+      </p>
+
+      <h2 class="anchor">11. Contacto</h2>
+      <div class="contact">
+        <p><strong>Correo electrónico:</strong> <a href="mailto:soporte@tiendagamez.com">soporte@tiendagamez.com</a></p>
+        <p><strong>Marca:</strong> Tienda Gamez</p>
+        <p><strong>Respuesta estimada:</strong> dentro de 48 horas hábiles.</p>
+      </div>
+
+      <p class="footer-note">
+        Esta política está pensada para publicarse en una URL pública, por ejemplo en GitHub Pages, para cumplir con la
+        información requerida por Google Play Console.
+      </p>
+    </section>
+  </main>
 </body>
 </html>
