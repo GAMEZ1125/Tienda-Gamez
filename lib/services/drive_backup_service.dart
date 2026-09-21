@@ -173,6 +173,48 @@ class GoogleDriveBackupService {
     }
   }
 
+  /// Elimina todos los respaldos creados por la app en la cuenta de Google del
+  /// usuario (requisito de eliminación de cuenta de Google Play), cancela la
+  /// tarea programada y cierra la sesión.
+  /// Devuelve un mensaje con el resultado para mostrarlo al usuario.
+  Future<String> deleteAccountData() async {
+    var deletedCount = 0;
+    final client = await AuthService.instance.getAuthenticatedClient();
+    if (client != null) {
+      final api = drive.DriveApi(client);
+      String? pageToken;
+      try {
+        do {
+          final response = await api.files.list(
+            q: "name contains '$_backupPrefix' and trashed = false",
+            pageSize: 100,
+            pageToken: pageToken,
+            $fields: 'nextPageToken,files(id,name)',
+          );
+          for (final file in response.files ?? const <drive.File>[]) {
+            try {
+              await api.files.delete(file.id!);
+              deletedCount++;
+            } catch (_) {
+              // Continúa con el resto de archivos si uno falla.
+            }
+          }
+          pageToken = response.nextPageToken;
+        } while (pageToken != null);
+      } catch (_) {
+        // Si falla la comunicación con Drive, se cierra sesión igualmente.
+      }
+    }
+
+    await cancelScheduledBackup();
+    await AuthService.instance.signOut();
+    await preferencesService.clearGoogleDriveSession();
+
+    return deletedCount == 0
+        ? 'Sesión cerrada. No se encontraron respaldos en Drive.'
+        : 'Sesión cerrada. Se eliminaron $deletedCount respaldo(s) de Drive.';
+  }
+
   Future<String?> getLatestBackupLabel() async {
     final client = await AuthService.instance.getAuthenticatedClient();
     if (client == null) return null;

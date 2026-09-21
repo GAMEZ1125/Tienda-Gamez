@@ -1253,6 +1253,34 @@ class DatabaseHelper {
     }
   }
 
+  /// Deletes ALL local business data: the SQLite database and the stored
+  /// product images. Used by the "Eliminar cuenta y datos" flow required by
+  /// Google Play's account deletion policy. The database connection is
+  /// re-opened empty afterwards.
+  static Future<void> deleteLocalData() async {
+    await closeDatabase();
+
+    try {
+      final dbPath = await getDatabasePath();
+      final dbFile = io.File(dbPath);
+      if (await dbFile.exists()) await dbFile.delete();
+      // Remove WAL/SHM side files left by SQLite.
+      for (final suffix in ['-wal', '-shm', '-journal']) {
+        final sideFile = io.File('$dbPath$suffix');
+        if (await sideFile.exists()) await sideFile.delete();
+      }
+    } catch (_) {}
+
+    try {
+      final imagesDir = io.Directory(await getImagesDirectory());
+      if (await imagesDir.exists()) {
+        await imagesDir.delete(recursive: true);
+      }
+    } catch (_) {}
+
+    _database = await _initDatabase();
+  }
+
   // ==================== PRODUCT CATEGORIES ====================
 
   static Future<List<ProductCategory>> getAllCategories() async {

@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isUploadingDriveBackup = false;
   bool _isRestoringDriveBackup = false;
   bool _isImportingDataSafety = false;
+  bool _isDeletingAccountData = false;
   bool _askedForGoogleLogin = false;
   final _dataSafetyService = const PlayConsoleDataSafetyService();
 
@@ -240,6 +241,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         _showError('Error al cerrar sesión', e);
       }
+    }
+  }
+
+  Future<void> _deleteAccountData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar cuenta y datos'),
+        content: const Text(
+          'Esto eliminará de tu cuenta de Google todos los respaldos creados por '
+          'Tienda Gamez, cerrará tu sesión y borrará los datos guardados en este '
+          'dispositivo. Esta acción no se puede deshacer.\n\n'
+          '¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Eliminar todo'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeletingAccountData = true);
+    try {
+      await DatabaseHelper.deleteLocalData();
+      final message = await GoogleDriveBackupService.instance.deleteAccountData();
+      if (!mounted) return;
+      setState(() {});
+      _showInfo(message);
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al eliminar la cuenta', e);
+      }
+    } finally {
+      if (mounted) setState(() => _isDeletingAccountData = false);
     }
   }
 
@@ -744,6 +788,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 )
                               : const Icon(Icons.restore),
                           label: const Text('Restaurar Drive'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: AppTheme.errorColor,
+                          ),
+                          onPressed: preferencesService.googleDriveSignedIn &&
+                                  !_isDeletingAccountData
+                              ? _deleteAccountData
+                              : null,
+                          icon: _isDeletingAccountData
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.delete_forever),
+                          label: const Text('Eliminar cuenta y datos'),
                         ),
                       ),
                     ],
